@@ -317,6 +317,9 @@ exports.marchingCubeCapX = function(dims, data, isoMin, isoMax, bounds, dir) {
 		vertices[i] = capX;
 		vertices[i+1] += sy;
 		vertices[i+2] += sz;
+		normals[i] = dir;
+		normals[i+1] = 0;
+		normals[i+2] = 0;
 	}
 
 	return {vertices: vertices, normals: normals};
@@ -364,6 +367,9 @@ exports.marchingCubeCapY = function(dims, data, isoMin, isoMax, bounds, dir) {
 		vertices[i] += sx;
 		vertices[i+1] = capY;
 		vertices[i+2] += sz;
+		normals[i] = 0;
+		normals[i+1] = dir;
+		normals[i+2] = 0;
 	}
 
 	return {vertices: vertices, normals: normals};
@@ -411,6 +417,9 @@ exports.marchingCubeCapZ = function(dims, data, isoMin, isoMax, bounds, dir) {
 		vertices[i] += sx;
 		vertices[i+1] += sy;
 		vertices[i+2] = capZ;
+		normals[i] = 0;
+		normals[i+1] = 0;
+		normals[i+2] = dir;
 	}
 
 	return {vertices: vertices, normals: normals};
