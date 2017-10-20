@@ -46,6 +46,8 @@ var mesh = createMesh(gl, isoPlot)
 scene.add(mesh)
 ```
 
+[Try out the example in your browser](http://kig.github.io/gl-isosurface3d/)
+
 # Install
 
 ```
