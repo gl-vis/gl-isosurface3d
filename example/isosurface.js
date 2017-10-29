@@ -6,9 +6,10 @@ var createSpikes = require('gl-spikes3d')
 var createSelect = require('gl-select-static')
 var getBounds    = require('bound-points')
 var mouseChange  = require('mouse-change')
-var createMesh   = require('gl-mesh3d')
+var createTriMesh   = require('../lib/trimesh')
 var createIsosurface = require('../isosurface')
 
+console.log("Isosurface demo");
 
 var width = 64
 var height = 64
@@ -32,8 +33,8 @@ var bounds = [[0,0,0], [width, height, depth]]
 var isoPlot = createIsosurface({
 	values: data,
 	dimensions: dims,
-	isoRange: [1600, 2000],
-	intensityRange: [1000, 2000],
+	isoBounds: [1600, 2000],
+	vertexIntensityBounds: [1500, 2000],
 	smoothNormals:  true,
 	isoCaps: true
 }, bounds)
@@ -54,7 +55,11 @@ zoomMax: 500,
 mode: 'turntable'
 })
 
-var mesh = createMesh(gl, isoPlot)
+console.time("createMesh")
+
+var mesh = createTriMesh(gl, isoPlot)
+
+console.timeEnd("createMesh")
 
 
 var select = createSelect(gl, [canvas.width, canvas.height])

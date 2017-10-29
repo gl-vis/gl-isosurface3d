@@ -6,7 +6,7 @@ var createSpikes = require('gl-spikes3d')
 var createSelect = require('gl-select-static')
 var getBounds    = require('bound-points')
 var mouseChange  = require('mouse-change')
-var createMesh   = require('gl-mesh3d')
+var createTriMesh   = require('../lib/trimesh')
 var createIsosurface = require('../isosurface')
 
 var getData = function(fn, responseType, callback) {
@@ -37,8 +37,8 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
   var isoPlot = createIsosurface({
     values: mri,
     dimensions: dims,
-    intensityRange: [1300, 3300],
-    isoRange: [2000, 2500],
+    vertexIntensityBounds: [1300, 3300],
+    isoBounds: [2000, 2500],
     smoothNormals: true,
     isoCaps: true
   }, bounds)
@@ -49,7 +49,8 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
   var gl = canvas.getContext('webgl')
 
   var camera = createCamera(canvas, {
-    eye:    bounds[0],
+    eye: [-100, 0, 250],
+    up: [0, -1, 0],
     center: [0.5*(bounds[0][0]+bounds[1][0]),
              0.5*(bounds[0][1]+bounds[1][1]),
              0.5*(bounds[0][2]+bounds[1][2])],
@@ -58,7 +59,9 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
   })
 
   isoPlot.colormap = 'portland'
-  var mesh = createMesh(gl, isoPlot)
+  isoPlot.isocaps.colormap = 'portland'
+  var mesh = createTriMesh(gl, isoPlot)
+  var capMesh = createTriMesh(gl, isoPlot.isocaps)
 
   var select = createSelect(gl, [canvas.width, canvas.height])
   var tickSpacing = 5;
@@ -80,7 +83,7 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
 
   mouseChange(canvas, function(buttons, x, y) {
     var pickData = select.query(x, canvas.height - y, 10)
-    var pickResult = mesh.pick(pickData)
+    var pickResult = mesh.pick(pickData) || capMesh.pick(pickData);
     if(pickResult) {
       spikes.update({
         position: pickResult.position,
@@ -113,6 +116,7 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
       axes.draw(cameraParams)
       spikes.draw(cameraParams)
       mesh.draw(cameraParams)
+      capMesh.draw(cameraParams)
       spikeChanged = false
     }
 
@@ -120,6 +124,7 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
       select.shape = [canvas.width, canvas.height]
       select.begin()
       mesh.drawPick(cameraParams)
+      capMesh.drawPick(cameraParams)
       select.end()
     }
   }

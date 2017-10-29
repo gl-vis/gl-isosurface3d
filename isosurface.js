@@ -3,32 +3,19 @@
 exports = module.exports = function(params, bounds) {
 	var dims = params.dimensions;
 	var data = params.values;
-	var [isoMin, isoMax] = params.isoRange || [1, 1/0];
-	var intensityRange = params.intensityRange;
-	if (!intensityRange) {
-		var min = 1/0;
-		var max = -1/0;
-		for (var i=0; i<data.length; i++) {
-			min = Math.min(min, data[i]);
-			max = Math.max(max, data[i]);
-		}
-		intensityRange = [min, max];
-	}
-	var [intensityMin, intensityMax] = intensityRange;
+	var [isoMin, isoMax] = params.isoBounds || [1, 1/0];
 	var isosurf = exports.marchingCubes(dims, data, isoMin, isoMax, bounds)
 	if (params.smoothNormals) {
 		exports.smoothNormals(isosurf);
 	}
+	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds);
 	if (params.isoCaps) {
 		var isocaps = exports.marchingCubesCaps(dims, data, isoMin, isoMax, bounds);
-		var isoBoth = exports.concatMeshes(isosurf, isocaps)
-	} else {
-		var isoBoth = isosurf;
+		var isocapsMesh = exports.meshConvert(isocaps, data, dims, params.vertexIntensityBounds);
+		isoPlot.isocaps = isocapsMesh;
 	}
-	var isoPlot = exports.meshConvert(isoBoth, data, dims, intensityMin, intensityMax);
 	return isoPlot;
 };
-
 
 const computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
 
@@ -89,6 +76,7 @@ const fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 		}
 	}
 }
+
 
 const buildGeoIndices = function(geoIndices, data, dims, bounds) {
 	var x, y, z;
@@ -438,28 +426,9 @@ exports.concatMeshes = function() {
 		var mesh = arguments[i];
 		var v = mesh.vertices;
 		var n = mesh.normals;
-		for (var j=0,l=v.length; j<l;) {
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-			normals[count] = n[j];
-			vertices[count++] = v[j++];
-		}
+		vertices.set(v, count);
+		normals.set(n, count);
+		count += v.length;
 	}
 	console.timeEnd('concatMeshes');
 	return {vertices: vertices, normals: normals};
@@ -485,34 +454,22 @@ exports.smoothNormals = function(mesh) {
 	return mesh;
 };
 
-exports.meshConvert = function(mesh, data, dims, intensityMin, intensityMax) {
+exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds) {
 	console.time('meshConvert');
-	let intensityRange = intensityMax - intensityMin;
 	let { vertices, normals } = mesh;
 	let [w,h,d] = dims;
-	let vertexIntensity = [];
-	let positions = [];
-	let vertexNormals = [];
-	let cells = [];
-	let face = [];
-	for (var j = 0; j < vertices.length; j+=3) {
+	let vertexIntensity = new Float32Array(vertices.length / 3);
+	for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
 		var x = vertices[j];
 		var y = vertices[j+1];
 		var z = vertices[j+2];
-		vertexIntensity.push(Math.max(0, Math.min(1, (data[z*h*w + y*w + x] - intensityMin) / intensityRange)));
-		positions.push([x,y,z]);
-		vertexNormals.push([normals[j], normals[j+1], normals[j+2]]);
-		if (j % 9 === 0) {
-			face = [];
-			cells.push(face);
-		}
-		face.push(j/3);
+		vertexIntensity[i] = data[z*h*w + y*w + x];
 	}
 	let geo = {
-		positions: positions,
-		vertexIntensity: vertexIntensity,
-		vertexNormals: vertexNormals,
-		cells: cells
+		positions: vertices,
+		vertexNormals: normals,
+		vertexIntensity,
+		vertexIntensityBounds
 	};
 	console.timeEnd('meshConvert');
 	return geo;
