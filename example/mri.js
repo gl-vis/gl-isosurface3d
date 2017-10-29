@@ -34,6 +34,8 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
     mri[i] = ((mri[i] << 8) & 0xff00) | (mri[i] >> 8);
   }
 
+  console.time("Total mesh creation time")
+
   var isoPlot = createIsosurface({
     values: mri,
     dimensions: dims,
@@ -59,9 +61,11 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
   })
 
   isoPlot.colormap = 'portland'
-  isoPlot.isocaps.colormap = 'portland'
+  isoPlot.caps.colormap = 'portland'
   var mesh = createTriMesh(gl, isoPlot)
-  var capMesh = createTriMesh(gl, isoPlot.isocaps)
+  var capMesh = createTriMesh(gl, isoPlot.caps)
+
+  console.timeEnd("Total mesh creation time")
 
   var select = createSelect(gl, [canvas.width, canvas.height])
   var tickSpacing = 5;

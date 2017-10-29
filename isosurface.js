@@ -8,11 +8,18 @@ exports = module.exports = function(params, bounds) {
 	if (params.smoothNormals) {
 		exports.smoothNormals(isosurf);
 	}
-	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds);
+	var isocapsMesh;
 	if (params.isoCaps) {
 		var isocaps = exports.marchingCubesCaps(dims, data, isoMin, isoMax, bounds);
-		var isocapsMesh = exports.meshConvert(isocaps, data, dims, params.vertexIntensityBounds);
-		isoPlot.isocaps = isocapsMesh;
+		if (params.singleMesh) {
+			isosurf = exports.concatMeshes(isosurf, isocaps);
+		} else {
+			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.vertexIntensityBounds);
+		}
+	}
+	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds);
+	if (isocapsMesh) {
+		isoPlot.caps = isocapsMesh;
 	}
 	return isoPlot;
 };

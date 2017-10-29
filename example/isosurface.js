@@ -9,6 +9,7 @@ var mouseChange  = require('mouse-change')
 var createTriMesh   = require('../lib/trimesh')
 var createIsosurface = require('../isosurface')
 
+console.time("Total mesh creation time")
 console.log("Isosurface demo");
 
 var width = 64
@@ -36,7 +37,8 @@ var isoPlot = createIsosurface({
 	isoBounds: [1600, 2000],
 	vertexIntensityBounds: [1500, 2000],
 	smoothNormals:  true,
-	isoCaps: true
+	isoCaps: true,
+	singleMesh: true
 }, bounds)
 
 isoPlot.colormap = 'portland'
@@ -47,7 +49,7 @@ window.addEventListener('resize', require('canvas-fit')(canvas))
 var gl = canvas.getContext('webgl')
 
 var camera = createCamera(canvas, {
-eye:    [0, 0, 100],
+eye:    [90, 90, 90],
 center: [0.5*(bounds[0][0]+bounds[1][0]),
          0.5*(bounds[0][1]+bounds[1][1]),
          0.5*(bounds[0][2]+bounds[1][2])],
@@ -55,12 +57,9 @@ zoomMax: 500,
 mode: 'turntable'
 })
 
-console.time("createMesh")
-
 var mesh = createTriMesh(gl, isoPlot)
 
-console.timeEnd("createMesh")
-
+console.timeEnd("Total mesh creation time")
 
 var select = createSelect(gl, [canvas.width, canvas.height])
 var tickSpacing = 5;
