@@ -6,7 +6,6 @@ var createSpikes = require('gl-spikes3d')
 var createSelect = require('gl-select-static')
 var getBounds    = require('bound-points')
 var mouseChange  = require('mouse-change')
-var createTriMesh   = require('../lib/trimesh')
 var createIsosurface = require('../isosurface')
 
 var getData = function(fn, responseType, callback) {
@@ -62,8 +61,8 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
 
   isoPlot.colormap = 'portland'
   isoPlot.caps.colormap = 'portland'
-  var mesh = createTriMesh(gl, isoPlot)
-  var capMesh = createTriMesh(gl, isoPlot.caps)
+  var mesh = createIsosurface.createTriMesh(gl, isoPlot)
+  var capMesh = createIsosurface.createTriMesh(gl, isoPlot.caps)
 
   console.timeEnd("Total mesh creation time")
 

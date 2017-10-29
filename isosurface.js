@@ -1,5 +1,7 @@
 "use strict";
 
+const createTriMesh = require('./lib/trimesh');
+
 exports = module.exports = function(params, bounds) {
 	var dims = params.dimensions;
 	var data = params.values;
@@ -23,6 +25,8 @@ exports = module.exports = function(params, bounds) {
 	}
 	return isoPlot;
 };
+
+exports.createTriMesh = createTriMesh;
 
 const computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
 

@@ -6,7 +6,6 @@ Visualization module for isosurfaces.
 
 ```javascript
 var createScene      = require('gl-plot3d')
-var createMesh       = require('gl-mesh3d')
 var createIsosurface = require('gl-isosurface3d')
 
 var scene = createScene()
@@ -33,17 +32,21 @@ var bounds = [[0,0,0], [width, height, depth]]
 var isoPlot = createIsosurface({
 	values: data,
 	dimensions: dims,
-	isoRange: [1600, 2000],
-	intensityRange: [1000, 2000],
+	isoBounds: [1600, 2000],
+	vertexIntensityBounds: [1000, 2000],
 	smoothNormals:  true,
-	isoCaps: true
+	isoCaps: true,
+	singleMesh: false
 }, bounds)
 
 isoPlot.colormap = 'portland'
+isoPlot.caps.colormap = 'jet'
 
-var mesh = createMesh(gl, isoPlot)
+var mesh = createIsosurface.createTriMesh(gl, isoPlot)
+var capMesh = createIsosurface.createTriMesh(gl, isoPlot.caps)
 
 scene.add(mesh)
+scene.add(capMesh)
 ```
 
 [Try out the example in your browser](http://kig.github.io/gl-isosurface3d/)
@@ -65,10 +68,11 @@ Creates an isosurface out of a 3D array.
 
     + `values` *(Required)* An flattened 3D array of values
     + `dimensions` *(Required)* The dimensions of the array
-    + `isoRange` *(Recommended)* The range of values to envelop with the isosurface. Defaults to [1, Infinity], which creates an isosurface that has all values 1 and larger inside it.
-    + `intensityRange` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
+    + `isoBounds` *(Recommended)* The range of values to envelop with the isosurface. Defaults to [1, Infinity], which creates an isosurface that has all values 1 and larger inside it.
+    + `vertexIntensityBounds` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
     + `smoothNormals` *(Optional)* Generate vertex normals for the isosurface. Defaults to false.
     + `isoCaps` *(Optional)* Generate caps for the isosurface. Defaults to false.
+    + `singleMesh` *(Optional)* Merge isosurface and isocap meshes into a single mesh. Defaults to false, in which case the isocap mesh is stored in isoPlot.caps. 
 
 * `bounds` is a bounds object that tells what part of the 3D array to display. It defaults to [[0, 0, 0], [width, height, depth]].
 

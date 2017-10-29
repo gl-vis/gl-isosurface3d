@@ -6,7 +6,6 @@ var createSpikes = require('gl-spikes3d')
 var createSelect = require('gl-select-static')
 var getBounds    = require('bound-points')
 var mouseChange  = require('mouse-change')
-var createTriMesh   = require('../lib/trimesh')
 var createIsosurface = require('../isosurface')
 
 console.time("Total mesh creation time")
@@ -38,10 +37,11 @@ var isoPlot = createIsosurface({
 	vertexIntensityBounds: [1500, 2000],
 	smoothNormals:  true,
 	isoCaps: true,
-	singleMesh: true
+	singleMesh: false
 }, bounds)
 
 isoPlot.colormap = 'portland'
+isoPlot.caps.colormap = 'jet'
 
 var canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
@@ -57,7 +57,8 @@ zoomMax: 500,
 mode: 'turntable'
 })
 
-var mesh = createTriMesh(gl, isoPlot)
+var mesh = createIsosurface.createTriMesh(gl, isoPlot)
+var capMesh = createIsosurface.createTriMesh(gl, isoPlot.caps)
 
 console.timeEnd("Total mesh creation time")
 
@@ -114,6 +115,7 @@ if(needsUpdate || spikeChanged) {
   axes.draw(cameraParams)
   spikes.draw(cameraParams)
   mesh.draw(cameraParams)
+  capMesh.draw(cameraParams)
   spikeChanged = false
 }
 
