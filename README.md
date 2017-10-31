@@ -49,7 +49,7 @@ scene.add(mesh)
 scene.add(capMesh)
 ```
 
-[Try out the example in your browser](http://kig.github.io/gl-isosurface3d/)
+[Try out the example in your browser](http://gl-vis.github.io/gl-isosurface3d/)
 
 # Install
 
@@ -76,7 +76,28 @@ Creates an isosurface out of a 3D array.
 
 * `bounds` is a bounds object that tells what part of the 3D array to display. It defaults to [[0, 0, 0], [width, height, depth]].
 
-**Returns** A isosurface object that can be passed to gl-mesh3d.
+**Returns** An isosurface object that can be passed to isosurface3d.createTriMesh.
+
+#### `var drawable = require('gl-isosurface3d').createTriMesh(params)`
+Creates a drawable out of the isosurface triangle data. This is a version of gl-mesh3d optimized for fast loading of unindexed triangle meshes.
+
+* `params` is an object that has the following properties:
+
+    + `gl` A reference to the WebGL context
+	+ `positions` *(Required)* Vertex positions array for the mesh, encoded as a flat Float32Array.
+	+ `vertexNormals` *(Required)* Vertex normals for the mesh, encoded as a flat Float32Array.
+	+ `vertexIntensity` Intensities of the vertices, used for intensity texture lookups.
+	+ `colormap` Name of the colormap to use for coloring the vertices.
+    + `vertexIntensityBounds` intensity range for the colormap
+    + `ambientLight` ambient light color * intensity
+    + `diffuseLight` diffuse light color * intensity
+    + `specularLight` specular light color
+    + `lightPosition` location of light
+    + `roughness` surface roughness
+    + `fresnel` surface glossiness/"rim light" factor
+    + `opacity` surface opacity
+
+**Returns** A drawable object that can be drawn on the passed gl context with drawable.draw(cameraParams);
 
 # Credits
 (c) 2013-2017 Mikola Lysenko, Ilmari Heikkinen. MIT License
