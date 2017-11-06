@@ -32,7 +32,7 @@
     "gl-spikes3d": "^1.0.5"
   },
   "scripts": {
-    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js; browserify -o build/example_mri.js example/mri.js",
+    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js && browserify -o build/example_mri.js example/mri.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

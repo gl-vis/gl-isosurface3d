@@ -2082,11 +2082,10 @@ var isoPlot = createIsosurface({
 	vertexIntensityBounds: [1500, 2000],
 	smoothNormals:  true,
 	isoCaps: true,
-	singleMesh: false
+	singleMesh: false,
+  colormap: 'portland',
+  capsColormap: 'jet'
 }, bounds)
-
-isoPlot.colormap = 'portland'
-isoPlot.caps.colormap = 'jet'
 
 var canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
@@ -2193,9 +2192,11 @@ exports = module.exports = function(params, bounds) {
 			isosurf = exports.concatMeshes(isosurf, isocaps);
 		} else {
 			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.vertexIntensityBounds);
+			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}
 	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds);
+	isoPlot.colormap = params.colormap;
 	if (isocapsMesh) {
 		isoPlot.caps = isocapsMesh;
 	}

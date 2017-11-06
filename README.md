@@ -36,11 +36,10 @@ var isoPlot = createIsosurface({
 	vertexIntensityBounds: [1000, 2000],
 	smoothNormals:  true,
 	isoCaps: true,
-	singleMesh: false
+	singleMesh: false,
+	colormap: 'portland',
+	capsColormap: 'jet'
 }, bounds)
-
-isoPlot.colormap = 'portland'
-isoPlot.caps.colormap = 'jet'
 
 var mesh = createIsosurface.createTriMesh(gl, isoPlot)
 var capMesh = createIsosurface.createTriMesh(gl, isoPlot.caps)
@@ -56,7 +55,7 @@ scene.add(capMesh)
 ```
 npm i gl-isosurface3d
 ```
-    
+
 # Basic interface
 
 ## Constructor
@@ -72,7 +71,9 @@ Creates an isosurface out of a 3D array.
     + `vertexIntensityBounds` *(Optional)* The range of values to map to [0..1] intensities. Defaults to the minimum and maximum values of the values array.
     + `smoothNormals` *(Optional)* Generate vertex normals for the isosurface. Defaults to false.
     + `isoCaps` *(Optional)* Generate caps for the isosurface. Defaults to false.
-    + `singleMesh` *(Optional)* Merge isosurface and isocap meshes into a single mesh. Defaults to false, in which case the isocap mesh is stored in isoPlot.caps. 
+    + `singleMesh` *(Optional)* Merge isosurface and isocap meshes into a single mesh. Defaults to false, in which case the isocap mesh is stored in isoPlot.caps.
+	+ `colormap` Name of the colormap to use for coloring the isosurface.
+	+ `capsColormap` Name of the colormap to use for coloring the isocaps when using singleMesh = false. Defaults to the isosurface colormap.
 
 * `bounds` is a bounds object that tells what part of the 3D array to display. It defaults to [[0, 0, 0], [width, height, depth]].
 

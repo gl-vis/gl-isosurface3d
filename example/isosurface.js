@@ -37,11 +37,10 @@ var isoPlot = createIsosurface({
 	vertexIntensityBounds: [1500, 2000],
 	smoothNormals:  true,
 	isoCaps: true,
-	singleMesh: false
+	singleMesh: false,
+  colormap: 'portland',
+  capsColormap: 'jet'
 }, bounds)
-
-isoPlot.colormap = 'portland'
-isoPlot.caps.colormap = 'jet'
 
 var canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
