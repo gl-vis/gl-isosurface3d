@@ -16,7 +16,7 @@ exports = module.exports = function(params, bounds) {
 		if (params.singleMesh) {
 			isosurf = exports.concatMeshes(isosurf, isocaps);
 		} else {
-			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.vertexIntensityBounds);
+			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds);
 			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}

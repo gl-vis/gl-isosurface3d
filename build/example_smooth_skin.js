@@ -2055,43 +2055,50 @@ var getBounds = require('bound-points');
 var mouseChange = require('mouse-change');
 var createIsosurface = require('../isosurface');
 
-var getData = function getData(fn, responseType, callback) {
-  if (!callback) {
-    callback = responseType;
-    responseType = 'text';
-  }
+var mat4 = require('gl-mat4');
+
+var getData = function getData(fn, callback) {
   var xhr = new XMLHttpRequest();
-  xhr.responseType = responseType;
   xhr.onload = function () {
-    callback(xhr.response);
+    callback(xhr.responseText);
   };
   xhr.open('GET', fn, true);
   xhr.send();
 };
 
-getData('example/data/MRbrain.txt', 'arraybuffer', function (mriBuffer) {
+var parseCSV = function parseCSV(str) {
+  return str.replace(/^\s+|\s+$/g, '').split(/\r?\n/g).map(function (x) {
+    return x.split(',').map(parseFloat);
+  });
+};
 
-  var dims = [256, 256, 109];
-  var bounds = [[0, 120, 30], dims];
-  var dataWidth = dims[0],
-      dataHeight = dims[1],
-      dataDepth = dims[2];
+getData('example/data/mri.csv', function (mricsv) {
+  console.log("Volume demo");
+  console.time("Total mesh creation time");
 
+  var mri = parseCSV(mricsv.replace(/\r?\n/g, ','))[0];
+  mri.pop();
 
-  var mri = new Uint16Array(mriBuffer);
-  for (var i = 0; i < mri.length; i++) {
-    mri[i] = mri[i] << 8 & 0xff00 | mri[i] >> 8;
-  }
+  var dims = [128, 27, 128];
+  var width = dims[0],
+      height = dims[1],
+      depth = dims[2];
+
+  var bounds = [[0, 0, 0], [width, height, depth]];
 
   console.time("Total mesh creation time");
 
   var isoPlot = createIsosurface({
     values: mri,
     dimensions: dims,
-    vertexIntensityBounds: [1300, 3300],
-    isoBounds: [2000, 2500],
+    isoBounds: [20, 255],
+    vertexIntensityBounds: [-500, -400],
     smoothNormals: true,
-    isoCaps: true
+    isoCaps: true,
+    singleMesh: false,
+    colormap: 'copper',
+    capsColormap: 'greys',
+    capsVertexIntensityBounds: [0, 100]
   }, bounds);
 
   var canvas = document.createElement('canvas');
@@ -2101,14 +2108,12 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function (mriBuffer) {
 
   var camera = createCamera(canvas, {
     eye: [-100, 0, 250],
-    up: [0, -1, 0],
+    up: [0, 1, 0],
     center: [0.5 * (bounds[0][0] + bounds[1][0]), 0.5 * (bounds[0][1] + bounds[1][1]), 0.5 * (bounds[0][2] + bounds[1][2])],
     zoomMax: 500,
     mode: 'turntable'
   });
 
-  isoPlot.colormap = 'portland';
-  isoPlot.caps.colormap = 'portland';
   var mesh = createIsosurface.createTriMesh(gl, isoPlot);
   var capMesh = createIsosurface.createTriMesh(gl, isoPlot.caps);
 
@@ -2149,6 +2154,9 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function (mriBuffer) {
     }
   });
 
+  var doubleY = mat4.create();
+  mat4.scale(doubleY, doubleY, [1, 2, 1]);
+
   function render() {
     requestAnimationFrame(render);
 
@@ -2157,7 +2165,8 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function (mriBuffer) {
     var needsUpdate = camera.tick();
     var cameraParams = {
       projection: perspective([], Math.PI / 4, canvas.width / canvas.height, 0.01, 1000),
-      view: camera.matrix
+      view: camera.matrix,
+      model: doubleY
     };
 
     if (needsUpdate || spikeChanged) {
@@ -2182,7 +2191,7 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function (mriBuffer) {
   render();
 });
 
-},{"../isosurface":8,"3d-view-controls":13,"bound-points":38,"canvas-fit":46,"gl-axes3d":75,"gl-mat4/perspective":96,"gl-select-static":105,"gl-spikes3d":114,"mouse-change":147}],8:[function(require,module,exports){
+},{"../isosurface":8,"3d-view-controls":13,"bound-points":38,"canvas-fit":46,"gl-axes3d":75,"gl-mat4":96,"gl-mat4/perspective":101,"gl-select-static":112,"gl-spikes3d":121,"mouse-change":154}],8:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -2855,7 +2864,7 @@ function closestPointToPickLocation(simplex, pixelCoord, model, view, projection
   return [closestIndex, interpolate(simplex, weights), weights];
 }
 
-},{"barycentric":18,"polytope-closest-point/lib/closest_point_2d.js":168}],10:[function(require,module,exports){
+},{"barycentric":18,"polytope-closest-point/lib/closest_point_2d.js":175}],10:[function(require,module,exports){
 "use strict";
 
 exports.computeVertexNormals = function (vertices, normals, dst) {
@@ -3376,7 +3385,7 @@ function createSimplicialMesh(gl, params) {
 
 module.exports = createSimplicialMesh;
 
-},{"./closest-point":9,"./shaders":11,"colormap":56,"gl-buffer":82,"gl-mat4/invert":93,"gl-mat4/multiply":95,"gl-shader":106,"gl-texture2d":115,"gl-vao":119,"ndarray":155,"normals":157,"simplicial-complex-contour":187,"typedarray-pool":203}],13:[function(require,module,exports){
+},{"./closest-point":9,"./shaders":11,"colormap":56,"gl-buffer":82,"gl-mat4/invert":97,"gl-mat4/multiply":99,"gl-shader":113,"gl-texture2d":122,"gl-vao":126,"ndarray":162,"normals":164,"simplicial-complex-contour":194,"typedarray-pool":210}],13:[function(require,module,exports){
 'use strict'
 
 module.exports = createCamera
@@ -3605,7 +3614,7 @@ function createCamera(element, options) {
   return camera
 }
 
-},{"3d-view":14,"mouse-change":147,"mouse-event-offset":148,"mouse-wheel":150,"right-now":175}],14:[function(require,module,exports){
+},{"3d-view":14,"mouse-change":154,"mouse-event-offset":155,"mouse-wheel":157,"right-now":182}],14:[function(require,module,exports){
 'use strict'
 
 module.exports = createViewController
@@ -3728,7 +3737,7 @@ function createViewController(options) {
     matrix: matrix
   }, mode)
 }
-},{"matrix-camera-controller":145,"orbit-camera-controller":159,"turntable-camera-controller":200}],15:[function(require,module,exports){
+},{"matrix-camera-controller":152,"orbit-camera-controller":166,"turntable-camera-controller":207}],15:[function(require,module,exports){
 var padLeft = require('pad-left')
 
 module.exports = addLineNumbers
@@ -3746,7 +3755,7 @@ function addLineNumbers (string, start, delim) {
   }).join('\n')
 }
 
-},{"pad-left":160}],16:[function(require,module,exports){
+},{"pad-left":167}],16:[function(require,module,exports){
 'use strict'
 
 module.exports = affineHull
@@ -3798,7 +3807,7 @@ function affineHull(points) {
   }
   return index
 }
-},{"robust-orientation":181}],17:[function(require,module,exports){
+},{"robust-orientation":188}],17:[function(require,module,exports){
 module.exports = function _atob(str) {
   return atob(str)
 }
@@ -3851,7 +3860,7 @@ function barycentric(simplex, point) {
   }
   return y
 }
-},{"robust-linear-solve":180}],19:[function(require,module,exports){
+},{"robust-linear-solve":187}],19:[function(require,module,exports){
 'use strict'
 
 var rationalize = require('./lib/rationalize')
@@ -8013,7 +8022,7 @@ function boxIntersectWrapper(arg0, arg1, arg2) {
       throw new Error('box-intersect: Invalid arguments')
   }
 }
-},{"./lib/intersect":41,"./lib/sweep":45,"typedarray-pool":203}],40:[function(require,module,exports){
+},{"./lib/intersect":41,"./lib/sweep":45,"typedarray-pool":210}],40:[function(require,module,exports){
 'use strict'
 
 var DIMENSION   = 'd'
@@ -8653,7 +8662,7 @@ function boxIntersectIter(
     }
   }
 }
-},{"./brute":40,"./median":42,"./partition":43,"./sweep":45,"bit-twiddle":36,"typedarray-pool":203}],42:[function(require,module,exports){
+},{"./brute":40,"./median":42,"./partition":43,"./sweep":45,"bit-twiddle":36,"typedarray-pool":210}],42:[function(require,module,exports){
 'use strict'
 
 module.exports = findMedian
@@ -9489,7 +9498,7 @@ red_loop:
     }
   }
 }
-},{"./sort":44,"bit-twiddle":36,"typedarray-pool":203}],46:[function(require,module,exports){
+},{"./sort":44,"bit-twiddle":36,"typedarray-pool":210}],46:[function(require,module,exports){
 var size = require('element-size')
 
 module.exports = fit
@@ -9740,7 +9749,7 @@ function delaunayRefine(points, triangulation) {
   }
 }
 
-},{"binary-search-bounds":52,"robust-in-sphere":179}],49:[function(require,module,exports){
+},{"binary-search-bounds":52,"robust-in-sphere":186}],49:[function(require,module,exports){
 'use strict'
 
 var bsearch = require('binary-search-bounds')
@@ -10111,7 +10120,7 @@ function monotoneTriangulate(points, edges) {
   return cells
 }
 
-},{"binary-search-bounds":52,"robust-orientation":181}],51:[function(require,module,exports){
+},{"binary-search-bounds":52,"robust-orientation":188}],51:[function(require,module,exports){
 'use strict'
 
 var bsearch = require('binary-search-bounds')
@@ -10654,7 +10663,7 @@ function cleanPSLG (points, edges, colors) {
   return modified
 }
 
-},{"./lib/rat-seg-intersect":54,"big-rat":22,"big-rat/cmp":20,"big-rat/to-float":34,"box-intersect":39,"nextafter":156,"rat-vec":171,"robust-segment-intersect":184,"union-find":204}],54:[function(require,module,exports){
+},{"./lib/rat-seg-intersect":54,"big-rat":22,"big-rat/cmp":20,"big-rat/to-float":34,"box-intersect":39,"nextafter":163,"rat-vec":178,"robust-segment-intersect":191,"union-find":211}],54:[function(require,module,exports){
 'use strict'
 
 module.exports = solveIntersection
@@ -10698,7 +10707,7 @@ function solveIntersection (a, b, c, d) {
   return r
 }
 
-},{"big-rat/div":21,"big-rat/mul":31,"big-rat/sign":32,"big-rat/sub":33,"rat-vec/add":170,"rat-vec/muls":172,"rat-vec/sub":173}],55:[function(require,module,exports){
+},{"big-rat/div":21,"big-rat/mul":31,"big-rat/sign":32,"big-rat/sub":33,"rat-vec/add":177,"rat-vec/muls":179,"rat-vec/sub":180}],55:[function(require,module,exports){
 module.exports={
 	"jet":[{"index":0,"rgb":[0,0,131]},{"index":0.125,"rgb":[0,60,170]},{"index":0.375,"rgb":[5,255,255]},{"index":0.625,"rgb":[255,255,0]},{"index":0.875,"rgb":[250,0,0]},{"index":1,"rgb":[128,0,0]}],
 
@@ -10940,7 +10949,7 @@ function rgbaStr (rgba) {
     return 'rgba(' + rgba.join(',') + ')';
 }
 
-},{"./colorScale":55,"lerp":139}],57:[function(require,module,exports){
+},{"./colorScale":55,"lerp":146}],57:[function(require,module,exports){
 "use strict"
 
 module.exports = compareAngle
@@ -11026,7 +11035,7 @@ function compareAngle(a, b, c, d) {
     }
   }
 }
-},{"robust-orientation":181,"robust-product":182,"robust-sum":186,"signum":58,"two-sum":202}],58:[function(require,module,exports){
+},{"robust-orientation":188,"robust-product":189,"robust-sum":193,"signum":58,"two-sum":209}],58:[function(require,module,exports){
 "use strict"
 
 module.exports = function signum(x) {
@@ -11107,7 +11116,7 @@ function convexHull2D(points) {
   return edges
 }
 
-},{"monotone-convex-hull-2d":146}],62:[function(require,module,exports){
+},{"monotone-convex-hull-2d":153}],62:[function(require,module,exports){
 'use strict'
 
 module.exports = convexHullnD
@@ -11168,7 +11177,7 @@ function convexHullnD(points, d) {
     return invPermute(nhull, ah)
   }
 }
-},{"affine-hull":16,"incremental-convex-hull":133}],63:[function(require,module,exports){
+},{"affine-hull":16,"incremental-convex-hull":140}],63:[function(require,module,exports){
 "use strict"
 
 function dcubicHermite(p0, v0, p1, v1, t, f) {
@@ -11679,7 +11688,7 @@ function generateCWiseOp(proc, typesig) {
 }
 module.exports = generateCWiseOp
 
-},{"uniq":205}],66:[function(require,module,exports){
+},{"uniq":212}],66:[function(require,module,exports){
 "use strict"
 
 // The function below is called when constructing a cwise function object, and does the following:
@@ -11957,7 +11966,7 @@ function edgeToAdjacency(edges, numVertices) {
   }
   return adj
 }
-},{"uniq":205}],71:[function(require,module,exports){
+},{"uniq":212}],71:[function(require,module,exports){
 module.exports = getSize
 
 function getSize(element) {
@@ -13987,7 +13996,7 @@ function createBackgroundCube(gl) {
   return new BackgroundCube(gl, buffer, vao, shader)
 }
 
-},{"./shaders":79,"gl-buffer":82,"gl-vao":119}],77:[function(require,module,exports){
+},{"./shaders":79,"gl-buffer":82,"gl-vao":126}],77:[function(require,module,exports){
 "use strict"
 
 module.exports = getCubeEdges
@@ -14228,7 +14237,7 @@ function getCubeEdges(model, view, projection, bounds) {
   //Return result
   return CUBE_RESULT
 }
-},{"bit-twiddle":36,"gl-mat4/invert":93,"gl-mat4/multiply":95,"robust-orientation":181,"split-polygon":195}],78:[function(require,module,exports){
+},{"bit-twiddle":36,"gl-mat4/invert":97,"gl-mat4/multiply":99,"robust-orientation":188,"split-polygon":202}],78:[function(require,module,exports){
 'use strict'
 
 module.exports    = createLines
@@ -14434,7 +14443,7 @@ function createLines(gl, bounds, ticks) {
   return new Lines(gl, vertBuf, vao, shader, tickCount, tickOffset, gridCount, gridOffset)
 }
 
-},{"./shaders":79,"gl-buffer":82,"gl-vao":119}],79:[function(require,module,exports){
+},{"./shaders":79,"gl-buffer":82,"gl-vao":126}],79:[function(require,module,exports){
 'use strict'
 
 
@@ -14465,7 +14474,7 @@ exports.bg = function(gl) {
   ])
 }
 
-},{"gl-shader":106}],80:[function(require,module,exports){
+},{"gl-shader":113}],80:[function(require,module,exports){
 (function (process){
 "use strict"
 
@@ -14667,7 +14676,7 @@ function createTextSprites(
 }
 
 }).call(this,require('_process'))
-},{"./shaders":79,"_process":6,"gl-buffer":82,"gl-vao":119,"vectorize-text":206}],81:[function(require,module,exports){
+},{"./shaders":79,"_process":6,"gl-buffer":82,"gl-vao":126,"vectorize-text":213}],81:[function(require,module,exports){
 'use strict'
 
 exports.create   = defaultTicks
@@ -14902,7 +14911,7 @@ function createBuffer(gl, data, type, usage) {
 
 module.exports = createBuffer
 
-},{"ndarray":155,"ndarray-ops":152,"typedarray-pool":203}],83:[function(require,module,exports){
+},{"ndarray":162,"ndarray-ops":159,"typedarray-pool":210}],83:[function(require,module,exports){
 module.exports = {
   0: 'NONE',
   1: 'ONE',
@@ -15676,7 +15685,7 @@ function createFBO(gl, width, height, options) {
     WEBGL_draw_buffers)
 }
 
-},{"gl-texture2d":115}],86:[function(require,module,exports){
+},{"gl-texture2d":122}],86:[function(require,module,exports){
 
 var sprintf = require('sprintf-js').sprintf;
 var glConstants = require('gl-constants/lookup');
@@ -15731,7 +15740,41 @@ function formatCompilerError(errLog, src, type) {
 }
 
 
-},{"add-line-numbers":15,"gl-constants/lookup":84,"glsl-shader-name":125,"sprintf-js":196}],87:[function(require,module,exports){
+},{"add-line-numbers":15,"gl-constants/lookup":84,"glsl-shader-name":132,"sprintf-js":203}],87:[function(require,module,exports){
+module.exports = adjoint;
+
+/**
+ * Calculates the adjugate of a mat4
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {mat4} a the source matrix
+ * @returns {mat4} out
+ */
+function adjoint(out, a) {
+    var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3],
+        a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7],
+        a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11],
+        a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+    out[0]  =  (a11 * (a22 * a33 - a23 * a32) - a21 * (a12 * a33 - a13 * a32) + a31 * (a12 * a23 - a13 * a22));
+    out[1]  = -(a01 * (a22 * a33 - a23 * a32) - a21 * (a02 * a33 - a03 * a32) + a31 * (a02 * a23 - a03 * a22));
+    out[2]  =  (a01 * (a12 * a33 - a13 * a32) - a11 * (a02 * a33 - a03 * a32) + a31 * (a02 * a13 - a03 * a12));
+    out[3]  = -(a01 * (a12 * a23 - a13 * a22) - a11 * (a02 * a23 - a03 * a22) + a21 * (a02 * a13 - a03 * a12));
+    out[4]  = -(a10 * (a22 * a33 - a23 * a32) - a20 * (a12 * a33 - a13 * a32) + a30 * (a12 * a23 - a13 * a22));
+    out[5]  =  (a00 * (a22 * a33 - a23 * a32) - a20 * (a02 * a33 - a03 * a32) + a30 * (a02 * a23 - a03 * a22));
+    out[6]  = -(a00 * (a12 * a33 - a13 * a32) - a10 * (a02 * a33 - a03 * a32) + a30 * (a02 * a13 - a03 * a12));
+    out[7]  =  (a00 * (a12 * a23 - a13 * a22) - a10 * (a02 * a23 - a03 * a22) + a20 * (a02 * a13 - a03 * a12));
+    out[8]  =  (a10 * (a21 * a33 - a23 * a31) - a20 * (a11 * a33 - a13 * a31) + a30 * (a11 * a23 - a13 * a21));
+    out[9]  = -(a00 * (a21 * a33 - a23 * a31) - a20 * (a01 * a33 - a03 * a31) + a30 * (a01 * a23 - a03 * a21));
+    out[10] =  (a00 * (a11 * a33 - a13 * a31) - a10 * (a01 * a33 - a03 * a31) + a30 * (a01 * a13 - a03 * a11));
+    out[11] = -(a00 * (a11 * a23 - a13 * a21) - a10 * (a01 * a23 - a03 * a21) + a20 * (a01 * a13 - a03 * a11));
+    out[12] = -(a10 * (a21 * a32 - a22 * a31) - a20 * (a11 * a32 - a12 * a31) + a30 * (a11 * a22 - a12 * a21));
+    out[13] =  (a00 * (a21 * a32 - a22 * a31) - a20 * (a01 * a32 - a02 * a31) + a30 * (a01 * a22 - a02 * a21));
+    out[14] = -(a00 * (a11 * a32 - a12 * a31) - a10 * (a01 * a32 - a02 * a31) + a30 * (a01 * a12 - a02 * a11));
+    out[15] =  (a00 * (a11 * a22 - a12 * a21) - a10 * (a01 * a22 - a02 * a21) + a20 * (a01 * a12 - a02 * a11));
+    return out;
+};
+},{}],88:[function(require,module,exports){
 module.exports = clone;
 
 /**
@@ -15760,7 +15803,36 @@ function clone(a) {
     out[15] = a[15];
     return out;
 };
-},{}],88:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
+module.exports = copy;
+
+/**
+ * Copy the values from one mat4 to another
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {mat4} a the source matrix
+ * @returns {mat4} out
+ */
+function copy(out, a) {
+    out[0] = a[0];
+    out[1] = a[1];
+    out[2] = a[2];
+    out[3] = a[3];
+    out[4] = a[4];
+    out[5] = a[5];
+    out[6] = a[6];
+    out[7] = a[7];
+    out[8] = a[8];
+    out[9] = a[9];
+    out[10] = a[10];
+    out[11] = a[11];
+    out[12] = a[12];
+    out[13] = a[13];
+    out[14] = a[14];
+    out[15] = a[15];
+    return out;
+};
+},{}],90:[function(require,module,exports){
 module.exports = create;
 
 /**
@@ -15788,7 +15860,7 @@ function create() {
     out[15] = 1;
     return out;
 };
-},{}],89:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 module.exports = determinant;
 
 /**
@@ -15819,7 +15891,7 @@ function determinant(a) {
     // Calculate the determinant
     return b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
 };
-},{}],90:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 module.exports = fromQuat;
 
 /**
@@ -15867,7 +15939,7 @@ function fromQuat(out, q) {
 
     return out;
 };
-},{}],91:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 module.exports = fromRotationTranslation;
 
 /**
@@ -15921,7 +15993,44 @@ function fromRotationTranslation(out, q, v) {
     
     return out;
 };
-},{}],92:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
+module.exports = frustum;
+
+/**
+ * Generates a frustum matrix with the given bounds
+ *
+ * @param {mat4} out mat4 frustum matrix will be written into
+ * @param {Number} left Left bound of the frustum
+ * @param {Number} right Right bound of the frustum
+ * @param {Number} bottom Bottom bound of the frustum
+ * @param {Number} top Top bound of the frustum
+ * @param {Number} near Near bound of the frustum
+ * @param {Number} far Far bound of the frustum
+ * @returns {mat4} out
+ */
+function frustum(out, left, right, bottom, top, near, far) {
+    var rl = 1 / (right - left),
+        tb = 1 / (top - bottom),
+        nf = 1 / (near - far);
+    out[0] = (near * 2) * rl;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = (near * 2) * tb;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = (right + left) * rl;
+    out[9] = (top + bottom) * tb;
+    out[10] = (far + near) * nf;
+    out[11] = -1;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = (far * near * 2) * nf;
+    out[15] = 0;
+    return out;
+};
+},{}],95:[function(require,module,exports){
 module.exports = identity;
 
 /**
@@ -15949,7 +16058,33 @@ function identity(out) {
     out[15] = 1;
     return out;
 };
-},{}],93:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
+module.exports = {
+  create: require('./create')
+  , clone: require('./clone')
+  , copy: require('./copy')
+  , identity: require('./identity')
+  , transpose: require('./transpose')
+  , invert: require('./invert')
+  , adjoint: require('./adjoint')
+  , determinant: require('./determinant')
+  , multiply: require('./multiply')
+  , translate: require('./translate')
+  , scale: require('./scale')
+  , rotate: require('./rotate')
+  , rotateX: require('./rotateX')
+  , rotateY: require('./rotateY')
+  , rotateZ: require('./rotateZ')
+  , fromRotationTranslation: require('./fromRotationTranslation')
+  , fromQuat: require('./fromQuat')
+  , frustum: require('./frustum')
+  , perspective: require('./perspective')
+  , perspectiveFromFieldOfView: require('./perspectiveFromFieldOfView')
+  , ortho: require('./ortho')
+  , lookAt: require('./lookAt')
+  , str: require('./str')
+}
+},{"./adjoint":87,"./clone":88,"./copy":89,"./create":90,"./determinant":91,"./fromQuat":92,"./fromRotationTranslation":93,"./frustum":94,"./identity":95,"./invert":97,"./lookAt":98,"./multiply":99,"./ortho":100,"./perspective":101,"./perspectiveFromFieldOfView":102,"./rotate":103,"./rotateX":104,"./rotateY":105,"./rotateZ":106,"./scale":107,"./str":108,"./translate":109,"./transpose":110}],97:[function(require,module,exports){
 module.exports = invert;
 
 /**
@@ -16005,7 +16140,7 @@ function invert(out, a) {
 
     return out;
 };
-},{}],94:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 var identity = require('./identity');
 
 module.exports = lookAt;
@@ -16096,7 +16231,7 @@ function lookAt(out, eye, center, up) {
 
     return out;
 };
-},{"./identity":92}],95:[function(require,module,exports){
+},{"./identity":95}],99:[function(require,module,exports){
 module.exports = multiply;
 
 /**
@@ -16139,7 +16274,44 @@ function multiply(out, a, b) {
     out[15] = b0*a03 + b1*a13 + b2*a23 + b3*a33;
     return out;
 };
-},{}],96:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
+module.exports = ortho;
+
+/**
+ * Generates a orthogonal projection matrix with the given bounds
+ *
+ * @param {mat4} out mat4 frustum matrix will be written into
+ * @param {number} left Left bound of the frustum
+ * @param {number} right Right bound of the frustum
+ * @param {number} bottom Bottom bound of the frustum
+ * @param {number} top Top bound of the frustum
+ * @param {number} near Near bound of the frustum
+ * @param {number} far Far bound of the frustum
+ * @returns {mat4} out
+ */
+function ortho(out, left, right, bottom, top, near, far) {
+    var lr = 1 / (left - right),
+        bt = 1 / (bottom - top),
+        nf = 1 / (near - far);
+    out[0] = -2 * lr;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[5] = -2 * bt;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[10] = 2 * nf;
+    out[11] = 0;
+    out[12] = (left + right) * lr;
+    out[13] = (top + bottom) * bt;
+    out[14] = (far + near) * nf;
+    out[15] = 1;
+    return out;
+};
+},{}],101:[function(require,module,exports){
 module.exports = perspective;
 
 /**
@@ -16173,7 +16345,49 @@ function perspective(out, fovy, aspect, near, far) {
     out[15] = 0;
     return out;
 };
-},{}],97:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
+module.exports = perspectiveFromFieldOfView;
+
+/**
+ * Generates a perspective projection matrix with the given field of view.
+ * This is primarily useful for generating projection matrices to be used
+ * with the still experiemental WebVR API.
+ *
+ * @param {mat4} out mat4 frustum matrix will be written into
+ * @param {number} fov Object containing the following values: upDegrees, downDegrees, leftDegrees, rightDegrees
+ * @param {number} near Near bound of the frustum
+ * @param {number} far Far bound of the frustum
+ * @returns {mat4} out
+ */
+function perspectiveFromFieldOfView(out, fov, near, far) {
+    var upTan = Math.tan(fov.upDegrees * Math.PI/180.0),
+        downTan = Math.tan(fov.downDegrees * Math.PI/180.0),
+        leftTan = Math.tan(fov.leftDegrees * Math.PI/180.0),
+        rightTan = Math.tan(fov.rightDegrees * Math.PI/180.0),
+        xScale = 2.0 / (leftTan + rightTan),
+        yScale = 2.0 / (upTan + downTan);
+
+    out[0] = xScale;
+    out[1] = 0.0;
+    out[2] = 0.0;
+    out[3] = 0.0;
+    out[4] = 0.0;
+    out[5] = yScale;
+    out[6] = 0.0;
+    out[7] = 0.0;
+    out[8] = -((leftTan - rightTan) * xScale * 0.5);
+    out[9] = ((upTan - downTan) * yScale * 0.5);
+    out[10] = far / (near - far);
+    out[11] = -1.0;
+    out[12] = 0.0;
+    out[13] = 0.0;
+    out[14] = (far * near) / (near - far);
+    out[15] = 0.0;
+    return out;
+}
+
+
+},{}],103:[function(require,module,exports){
 module.exports = rotate;
 
 /**
@@ -16238,7 +16452,7 @@ function rotate(out, a, rad, axis) {
     }
     return out;
 };
-},{}],98:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 module.exports = rotateX;
 
 /**
@@ -16283,7 +16497,7 @@ function rotateX(out, a, rad) {
     out[11] = a23 * c - a13 * s;
     return out;
 };
-},{}],99:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 module.exports = rotateY;
 
 /**
@@ -16328,7 +16542,7 @@ function rotateY(out, a, rad) {
     out[11] = a03 * s + a23 * c;
     return out;
 };
-},{}],100:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 module.exports = rotateZ;
 
 /**
@@ -16373,7 +16587,7 @@ function rotateZ(out, a, rad) {
     out[7] = a13 * c - a03 * s;
     return out;
 };
-},{}],101:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 module.exports = scale;
 
 /**
@@ -16405,7 +16619,22 @@ function scale(out, a, v) {
     out[15] = a[15];
     return out;
 };
-},{}],102:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
+module.exports = str;
+
+/**
+ * Returns a string representation of a mat4
+ *
+ * @param {mat4} mat matrix to represent as a string
+ * @returns {String} string representation of the matrix
+ */
+function str(a) {
+    return 'mat4(' + a[0] + ', ' + a[1] + ', ' + a[2] + ', ' + a[3] + ', ' +
+                    a[4] + ', ' + a[5] + ', ' + a[6] + ', ' + a[7] + ', ' +
+                    a[8] + ', ' + a[9] + ', ' + a[10] + ', ' + a[11] + ', ' + 
+                    a[12] + ', ' + a[13] + ', ' + a[14] + ', ' + a[15] + ')';
+};
+},{}],109:[function(require,module,exports){
 module.exports = translate;
 
 /**
@@ -16444,7 +16673,7 @@ function translate(out, a, v) {
 
     return out;
 };
-},{}],103:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 module.exports = transpose;
 
 /**
@@ -16494,7 +16723,7 @@ function transpose(out, a) {
     
     return out;
 };
-},{}],104:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 module.exports = slerp
 
 /**
@@ -16547,7 +16776,7 @@ function slerp (out, a, b, t) {
   return out
 }
 
-},{}],105:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 'use strict'
 
 module.exports = createSelectBuffer
@@ -16702,7 +16931,7 @@ function createSelectBuffer(gl, shape) {
   return new SelectBuffer(gl, fbo, buffer)
 }
 
-},{"bit-twiddle":36,"cwise/lib/wrapper":67,"gl-fbo":85,"ndarray":155,"typedarray-pool":203}],106:[function(require,module,exports){
+},{"bit-twiddle":36,"cwise/lib/wrapper":67,"gl-fbo":85,"ndarray":162,"typedarray-pool":210}],113:[function(require,module,exports){
 'use strict'
 
 var createUniformWrapper   = require('./lib/create-uniforms')
@@ -16938,7 +17167,7 @@ function createShader(
 
 module.exports = createShader
 
-},{"./lib/GLError":107,"./lib/create-attributes":108,"./lib/create-uniforms":109,"./lib/reflect":110,"./lib/runtime-reflect":111,"./lib/shader-cache":112}],107:[function(require,module,exports){
+},{"./lib/GLError":114,"./lib/create-attributes":115,"./lib/create-uniforms":116,"./lib/reflect":117,"./lib/runtime-reflect":118,"./lib/shader-cache":119}],114:[function(require,module,exports){
 function GLError (rawError, shortMessage, longMessage) {
     this.shortMessage = shortMessage || ''
     this.longMessage = longMessage || ''
@@ -16953,7 +17182,7 @@ GLError.prototype.name = 'GLError'
 GLError.prototype.constructor = GLError
 module.exports = GLError
 
-},{}],108:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 'use strict'
 
 module.exports = createAttributeWrapper
@@ -17218,7 +17447,7 @@ function createAttributeWrapper(
   return obj
 }
 
-},{"./GLError":107}],109:[function(require,module,exports){
+},{"./GLError":114}],116:[function(require,module,exports){
 'use strict'
 
 var coallesceUniforms = require('./reflect')
@@ -17411,7 +17640,7 @@ function createUniformWrapper(gl, wrapper, uniforms, locations) {
   }
 }
 
-},{"./GLError":107,"./reflect":110}],110:[function(require,module,exports){
+},{"./GLError":114,"./reflect":117}],117:[function(require,module,exports){
 'use strict'
 
 module.exports = makeReflectTypes
@@ -17469,7 +17698,7 @@ function makeReflectTypes(uniforms, useIndex) {
   }
   return obj
 }
-},{}],111:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 'use strict'
 
 exports.uniforms    = runtimeUniforms
@@ -17549,7 +17778,7 @@ function runtimeAttributes(gl, program) {
   return result
 }
 
-},{}],112:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 'use strict'
 
 exports.shader   = getShaderReference
@@ -17687,7 +17916,7 @@ function createProgram(gl, vref, fref, attribs, locations) {
   return getCache(gl).getProgram(vref, fref, attribs, locations)
 }
 
-},{"./GLError":107,"gl-format-compiler-error":86,"weakmap-shim":210}],113:[function(require,module,exports){
+},{"./GLError":114,"gl-format-compiler-error":86,"weakmap-shim":217}],120:[function(require,module,exports){
 'use strict'
 
 
@@ -17704,7 +17933,7 @@ module.exports = function(gl) {
   ])
 }
 
-},{"gl-shader":106}],114:[function(require,module,exports){
+},{"gl-shader":113}],121:[function(require,module,exports){
 'use strict'
 
 var createBuffer = require('gl-buffer')
@@ -17900,7 +18129,7 @@ function createSpikes(gl, options) {
   return spikes
 }
 
-},{"./shaders/index":113,"gl-buffer":82,"gl-vao":119}],115:[function(require,module,exports){
+},{"./shaders/index":120,"gl-buffer":82,"gl-vao":126}],122:[function(require,module,exports){
 'use strict'
 
 var ndarray = require('ndarray')
@@ -18463,7 +18692,7 @@ function createTexture2D(gl) {
   throw new Error('gl-texture2d: Invalid arguments for texture2d constructor')
 }
 
-},{"ndarray":155,"ndarray-ops":152,"typedarray-pool":203}],116:[function(require,module,exports){
+},{"ndarray":162,"ndarray-ops":159,"typedarray-pool":210}],123:[function(require,module,exports){
 "use strict"
 
 function doBind(gl, elements, attributes) {
@@ -18518,7 +18747,7 @@ function doBind(gl, elements, attributes) {
 }
 
 module.exports = doBind
-},{}],117:[function(require,module,exports){
+},{}],124:[function(require,module,exports){
 "use strict"
 
 var bindAttribs = require("./do-bind.js")
@@ -18558,7 +18787,7 @@ function createVAOEmulated(gl) {
 }
 
 module.exports = createVAOEmulated
-},{"./do-bind.js":116}],118:[function(require,module,exports){
+},{"./do-bind.js":123}],125:[function(require,module,exports){
 "use strict"
 
 var bindAttribs = require("./do-bind.js")
@@ -18646,7 +18875,7 @@ function createVAONative(gl, ext) {
 }
 
 module.exports = createVAONative
-},{"./do-bind.js":116}],119:[function(require,module,exports){
+},{"./do-bind.js":123}],126:[function(require,module,exports){
 "use strict"
 
 var createVAONative = require("./lib/vao-native.js")
@@ -18675,7 +18904,7 @@ function createVAO(gl, attributes, elements, elementsType) {
 
 module.exports = createVAO
 
-},{"./lib/vao-emulated.js":117,"./lib/vao-native.js":118}],120:[function(require,module,exports){
+},{"./lib/vao-emulated.js":124,"./lib/vao-native.js":125}],127:[function(require,module,exports){
 module.exports = cross;
 
 /**
@@ -18695,7 +18924,7 @@ function cross(out, a, b) {
     out[2] = ax * by - ay * bx
     return out
 }
-},{}],121:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 module.exports = dot;
 
 /**
@@ -18708,7 +18937,7 @@ module.exports = dot;
 function dot(a, b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
-},{}],122:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 module.exports = length;
 
 /**
@@ -18723,7 +18952,7 @@ function length(a) {
         z = a[2]
     return Math.sqrt(x*x + y*y + z*z)
 }
-},{}],123:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 module.exports = lerp;
 
 /**
@@ -18744,7 +18973,7 @@ function lerp(out, a, b, t) {
     out[2] = az + t * (b[2] - az)
     return out
 }
-},{}],124:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 module.exports = normalize;
 
 /**
@@ -18768,7 +18997,7 @@ function normalize(out, a) {
     }
     return out
 }
-},{}],125:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 var tokenize = require('glsl-tokenizer')
 var atob     = require('atob-lite')
 
@@ -18793,7 +19022,7 @@ function getName(src) {
   }
 }
 
-},{"atob-lite":17,"glsl-tokenizer":132}],126:[function(require,module,exports){
+},{"atob-lite":17,"glsl-tokenizer":139}],133:[function(require,module,exports){
 module.exports = tokenize
 
 var literals100 = require('./lib/literals')
@@ -19157,7 +19386,7 @@ function tokenize(opt) {
   }
 }
 
-},{"./lib/builtins":128,"./lib/builtins-300es":127,"./lib/literals":130,"./lib/literals-300es":129,"./lib/operators":131}],127:[function(require,module,exports){
+},{"./lib/builtins":135,"./lib/builtins-300es":134,"./lib/literals":137,"./lib/literals-300es":136,"./lib/operators":138}],134:[function(require,module,exports){
 // 300es builtins/reserved words that were previously valid in v100
 var v100 = require('./builtins')
 
@@ -19228,7 +19457,7 @@ module.exports = v100.concat([
   , 'textureProjGradOffset'
 ])
 
-},{"./builtins":128}],128:[function(require,module,exports){
+},{"./builtins":135}],135:[function(require,module,exports){
 module.exports = [
   // Keep this list sorted
   'abs'
@@ -19380,7 +19609,7 @@ module.exports = [
   , 'textureCubeGradEXT'
 ]
 
-},{}],129:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 var v100 = require('./literals')
 
 module.exports = v100.slice().concat([
@@ -19470,7 +19699,7 @@ module.exports = v100.slice().concat([
   , 'usampler2DMSArray'
 ])
 
-},{"./literals":130}],130:[function(require,module,exports){
+},{"./literals":137}],137:[function(require,module,exports){
 module.exports = [
   // current
     'precision'
@@ -19565,7 +19794,7 @@ module.exports = [
   , 'using'
 ]
 
-},{}],131:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 module.exports = [
     '<<='
   , '>>='
@@ -19614,7 +19843,7 @@ module.exports = [
   , '}'
 ]
 
-},{}],132:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 var tokenize = require('./index')
 
 module.exports = tokenizeString
@@ -19629,7 +19858,7 @@ function tokenizeString(str, opt) {
   return tokens
 }
 
-},{"./index":126}],133:[function(require,module,exports){
+},{"./index":133}],140:[function(require,module,exports){
 "use strict"
 
 //High level idea:
@@ -20076,7 +20305,7 @@ function incrementalConvexHull(points, randomSearch) {
   //Extract boundary cells
   return triangles.boundary()
 }
-},{"robust-orientation":181,"simplicial-complex":134}],134:[function(require,module,exports){
+},{"robust-orientation":188,"simplicial-complex":141}],141:[function(require,module,exports){
 "use strict"; "use restrict";
 
 var bits      = require("bit-twiddle")
@@ -20420,7 +20649,7 @@ function connectedComponents(cells, vertex_count) {
 }
 exports.connectedComponents = connectedComponents
 
-},{"bit-twiddle":36,"union-find":204}],135:[function(require,module,exports){
+},{"bit-twiddle":36,"union-find":211}],142:[function(require,module,exports){
 "use strict"
 
 var bounds = require("binary-search-bounds")
@@ -20787,7 +21016,7 @@ function createWrapper(intervals) {
   return new IntervalTree(createIntervalTree(intervals))
 }
 
-},{"binary-search-bounds":35}],136:[function(require,module,exports){
+},{"binary-search-bounds":35}],143:[function(require,module,exports){
 "use strict"
 
 function invertPermutation(pi, result) {
@@ -20799,7 +21028,7 @@ function invertPermutation(pi, result) {
 }
 
 module.exports = invertPermutation
-},{}],137:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 "use strict"
 
 function iota(n) {
@@ -20811,7 +21040,7 @@ function iota(n) {
 }
 
 module.exports = iota
-},{}],138:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -20834,12 +21063,12 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],139:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 function lerp(v0, v1, t) {
     return v0*(1-t)+v1*t
 }
 module.exports = lerp
-},{}],140:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 'use strict'
 
 module.exports = createTable
@@ -20905,7 +21134,7 @@ function createTable(dimension) {
   }
   return result
 }
-},{"convex-hull":59}],141:[function(require,module,exports){
+},{"convex-hull":59}],148:[function(require,module,exports){
 /*jshint unused:true*/
 /*
 Input:  matrix      ; a 4x4 matrix
@@ -21085,7 +21314,7 @@ function combine(out, a, b, scale1, scale2) {
     out[1] = a[1] * scale1 + b[1] * scale2
     out[2] = a[2] * scale1 + b[2] * scale2
 }
-},{"./normalize":142,"gl-mat4/clone":87,"gl-mat4/create":88,"gl-mat4/determinant":89,"gl-mat4/invert":93,"gl-mat4/transpose":103,"gl-vec3/cross":120,"gl-vec3/dot":121,"gl-vec3/length":122,"gl-vec3/normalize":124}],142:[function(require,module,exports){
+},{"./normalize":149,"gl-mat4/clone":88,"gl-mat4/create":90,"gl-mat4/determinant":91,"gl-mat4/invert":97,"gl-mat4/transpose":110,"gl-vec3/cross":127,"gl-vec3/dot":128,"gl-vec3/length":129,"gl-vec3/normalize":131}],149:[function(require,module,exports){
 module.exports = function normalize(out, mat) {
     var m44 = mat[15]
     // Cannot normalize.
@@ -21096,7 +21325,7 @@ module.exports = function normalize(out, mat) {
         out[i] = mat[i] * scale
     return true
 }
-},{}],143:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 var lerp = require('gl-vec3/lerp')
 
 var recompose = require('mat4-recompose')
@@ -21149,7 +21378,7 @@ function vec3(n) {
 function vec4() {
     return [0,0,0,1]
 }
-},{"gl-mat4/determinant":89,"gl-vec3/lerp":123,"mat4-decompose":141,"mat4-recompose":144,"quat-slerp":169}],144:[function(require,module,exports){
+},{"gl-mat4/determinant":91,"gl-vec3/lerp":130,"mat4-decompose":148,"mat4-recompose":151,"quat-slerp":176}],151:[function(require,module,exports){
 /*
 Input:  translation ; a 3 component vector
         scale       ; a 3 component vector
@@ -21210,7 +21439,7 @@ module.exports = function recomposeMat4(matrix, translation, scale, skew, perspe
     mat4.scale(matrix, matrix, scale)
     return matrix
 }
-},{"gl-mat4/create":88,"gl-mat4/fromRotationTranslation":91,"gl-mat4/identity":92,"gl-mat4/multiply":95,"gl-mat4/scale":101,"gl-mat4/translate":102}],145:[function(require,module,exports){
+},{"gl-mat4/create":90,"gl-mat4/fromRotationTranslation":93,"gl-mat4/identity":95,"gl-mat4/multiply":99,"gl-mat4/scale":107,"gl-mat4/translate":109}],152:[function(require,module,exports){
 'use strict'
 
 var bsearch   = require('binary-search-bounds')
@@ -21410,7 +21639,7 @@ function createMatrixCameraController(options) {
   return new MatrixCameraController(matrix)
 }
 
-},{"binary-search-bounds":35,"gl-mat4/invert":93,"gl-mat4/lookAt":94,"gl-mat4/rotateX":98,"gl-mat4/rotateY":99,"gl-mat4/rotateZ":100,"gl-mat4/scale":101,"gl-mat4/translate":102,"gl-vec3/normalize":124,"mat4-interpolate":143}],146:[function(require,module,exports){
+},{"binary-search-bounds":35,"gl-mat4/invert":97,"gl-mat4/lookAt":98,"gl-mat4/rotateX":104,"gl-mat4/rotateY":105,"gl-mat4/rotateZ":106,"gl-mat4/scale":107,"gl-mat4/translate":109,"gl-vec3/normalize":131,"mat4-interpolate":150}],153:[function(require,module,exports){
 'use strict'
 
 module.exports = monotoneConvexHull2D
@@ -21492,7 +21721,7 @@ function monotoneConvexHull2D(points) {
   //Return result
   return result
 }
-},{"robust-orientation":181}],147:[function(require,module,exports){
+},{"robust-orientation":188}],154:[function(require,module,exports){
 'use strict'
 
 module.exports = mouseListen
@@ -21699,7 +21928,7 @@ function mouseListen (element, callback) {
   return result
 }
 
-},{"mouse-event":149}],148:[function(require,module,exports){
+},{"mouse-event":156}],155:[function(require,module,exports){
 var rootPosition = { left: 0, top: 0 }
 
 module.exports = mouseEventOffset
@@ -21726,7 +21955,7 @@ function getBoundingClientOffset (element) {
   }
 }
 
-},{}],149:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 'use strict'
 
 function mouseButtons(ev) {
@@ -21788,7 +22017,7 @@ function mouseRelativeY(ev) {
 }
 exports.y = mouseRelativeY
 
-},{}],150:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 'use strict'
 
 var toPX = require('to-px')
@@ -21830,7 +22059,7 @@ function mouseWheelListen(element, callback, noScroll) {
   return listener
 }
 
-},{"to-px":198}],151:[function(require,module,exports){
+},{"to-px":205}],158:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -22246,7 +22475,7 @@ function createSurfaceExtractor(args) {
     order,
     typesig)
 }
-},{"typedarray-pool":203}],152:[function(require,module,exports){
+},{"typedarray-pool":210}],159:[function(require,module,exports){
 "use strict"
 
 var compile = require("cwise-compiler")
@@ -22709,7 +22938,7 @@ exports.equals = compile({
 
 
 
-},{"cwise-compiler":64}],153:[function(require,module,exports){
+},{"cwise-compiler":64}],160:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -23438,7 +23667,7 @@ function compileSort(order, dtype) {
 }
 
 module.exports = compileSort
-},{"typedarray-pool":203}],154:[function(require,module,exports){
+},{"typedarray-pool":210}],161:[function(require,module,exports){
 "use strict"
 
 var compile = require("./lib/compile_sort.js")
@@ -23458,7 +23687,7 @@ function sort(array) {
 }
 
 module.exports = sort
-},{"./lib/compile_sort.js":153}],155:[function(require,module,exports){
+},{"./lib/compile_sort.js":160}],162:[function(require,module,exports){
 var iota = require("iota-array")
 var isBuffer = require("is-buffer")
 
@@ -23803,7 +24032,7 @@ function wrappedNDArrayCtor(data, shape, stride, offset) {
 
 module.exports = wrappedNDArrayCtor
 
-},{"iota-array":137,"is-buffer":138}],156:[function(require,module,exports){
+},{"iota-array":144,"is-buffer":145}],163:[function(require,module,exports){
 "use strict"
 
 var doubleBits = require("double-bits")
@@ -23846,7 +24075,7 @@ function nextafter(x, y) {
   }
   return doubleBits.pack(lo, hi)
 }
-},{"double-bits":68}],157:[function(require,module,exports){
+},{"double-bits":68}],164:[function(require,module,exports){
 var DEFAULT_NORMALS_EPSILON = 1e-6;
 var DEFAULT_FACE_EPSILON = 1e-6;
 
@@ -23971,7 +24200,7 @@ exports.faceNormals = function(faces, positions, specifiedEpsilon) {
 
 
 
-},{}],158:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 'use strict'
 
 module.exports = quatFromFrame
@@ -24013,7 +24242,7 @@ function quatFromFrame(
   }
   return out
 }
-},{}],159:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 'use strict'
 
 module.exports = createOrbitController
@@ -24407,7 +24636,7 @@ function createOrbitController(options) {
 
   return result
 }
-},{"./lib/quatFromFrame":158,"filtered-vector":72,"gl-mat4/fromQuat":90,"gl-mat4/invert":93,"gl-mat4/lookAt":94}],160:[function(require,module,exports){
+},{"./lib/quatFromFrame":165,"filtered-vector":72,"gl-mat4/fromQuat":92,"gl-mat4/invert":97,"gl-mat4/lookAt":98}],167:[function(require,module,exports){
 /*!
  * pad-left <https://github.com/jonschlinkert/pad-left>
  *
@@ -24423,7 +24652,7 @@ module.exports = function padLeft(str, num, ch) {
   ch = typeof ch !== 'undefined' ? (ch + '') : ' ';
   return repeat(ch, num) + str;
 };
-},{"repeat-string":174}],161:[function(require,module,exports){
+},{"repeat-string":181}],168:[function(require,module,exports){
 module.exports = function parseUnit(str, out) {
     if (!out)
         out = [ 0, '' ]
@@ -24434,7 +24663,7 @@ module.exports = function parseUnit(str, out) {
     out[1] = str.match(/[\d.\-\+]*\s*(.*)/)[1] || ''
     return out
 }
-},{}],162:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 "use strict"
 
 module.exports = permutationSign
@@ -24486,7 +24715,7 @@ function permutationSign(p) {
     return sgn
   }
 }
-},{"typedarray-pool":203}],163:[function(require,module,exports){
+},{"typedarray-pool":210}],170:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -24573,7 +24802,7 @@ function unrank(n, r, p) {
 exports.rank = rank
 exports.unrank = unrank
 
-},{"invert-permutation":136,"typedarray-pool":203}],164:[function(require,module,exports){
+},{"invert-permutation":143,"typedarray-pool":210}],171:[function(require,module,exports){
 "use strict"
 
 module.exports = planarDual
@@ -24704,7 +24933,7 @@ function planarDual(cells, positions) {
   //Combine paths and loops together
   return cycles
 }
-},{"compare-angle":57}],165:[function(require,module,exports){
+},{"compare-angle":57}],172:[function(require,module,exports){
 'use strict'
 
 module.exports = trimLeaves
@@ -24760,7 +24989,7 @@ function trimLeaves(edges, positions) {
   
   return [ nedges, npositions ]
 }
-},{"edges-to-adjacency-list":70}],166:[function(require,module,exports){
+},{"edges-to-adjacency-list":70}],173:[function(require,module,exports){
 'use strict'
 
 module.exports = planarGraphToPolyline
@@ -24965,7 +25194,7 @@ function planarGraphToPolyline(edges, positions) {
 
   return result
 }
-},{"./lib/trim-leaves":165,"edges-to-adjacency-list":70,"planar-dual":164,"point-in-big-polygon":167,"robust-sum":186,"two-product":201,"uniq":205}],167:[function(require,module,exports){
+},{"./lib/trim-leaves":172,"edges-to-adjacency-list":70,"planar-dual":171,"point-in-big-polygon":174,"robust-sum":193,"two-product":208,"uniq":212}],174:[function(require,module,exports){
 module.exports = preprocessPolygon
 
 var orient = require('robust-orientation')[3]
@@ -25117,7 +25346,7 @@ function preprocessPolygon(loops) {
       testSlab)
   }
 }
-},{"binary-search-bounds":35,"interval-tree-1d":135,"robust-orientation":181,"slab-decomposition":194}],168:[function(require,module,exports){
+},{"binary-search-bounds":35,"interval-tree-1d":142,"robust-orientation":188,"slab-decomposition":201}],175:[function(require,module,exports){
 //Optimized version for triangle closest point
 // Based on Eberly's WildMagick codes
 // http://www.geometrictools.com/LibMathematics/Distance/Distance.html
@@ -25315,9 +25544,9 @@ function closestPoint2d(V0, V1, V2, point, result) {
 
 module.exports = closestPoint2d;
 
-},{}],169:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 module.exports = require('gl-quat/slerp')
-},{"gl-quat/slerp":104}],170:[function(require,module,exports){
+},{"gl-quat/slerp":111}],177:[function(require,module,exports){
 'use strict'
 
 var bnadd = require('big-rat/add')
@@ -25333,7 +25562,7 @@ function add (a, b) {
   return r
 }
 
-},{"big-rat/add":19}],171:[function(require,module,exports){
+},{"big-rat/add":19}],178:[function(require,module,exports){
 'use strict'
 
 module.exports = float2rat
@@ -25348,7 +25577,7 @@ function float2rat(v) {
   return result
 }
 
-},{"big-rat":22}],172:[function(require,module,exports){
+},{"big-rat":22}],179:[function(require,module,exports){
 'use strict'
 
 var rat = require('big-rat')
@@ -25366,7 +25595,7 @@ function muls(a, x) {
   return r
 }
 
-},{"big-rat":22,"big-rat/mul":31}],173:[function(require,module,exports){
+},{"big-rat":22,"big-rat/mul":31}],180:[function(require,module,exports){
 'use strict'
 
 var bnsub = require('big-rat/sub')
@@ -25382,7 +25611,7 @@ function sub(a, b) {
   return r
 }
 
-},{"big-rat/sub":33}],174:[function(require,module,exports){
+},{"big-rat/sub":33}],181:[function(require,module,exports){
 /*!
  * repeat-string <https://github.com/jonschlinkert/repeat-string>
  *
@@ -25454,7 +25683,7 @@ function repeat(str, num) {
   return res;
 }
 
-},{}],175:[function(require,module,exports){
+},{}],182:[function(require,module,exports){
 (function (global){
 module.exports =
   global.performance &&
@@ -25465,7 +25694,7 @@ module.exports =
   }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],176:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 "use strict"
 
 module.exports = compressExpansion
@@ -25500,7 +25729,7 @@ function compressExpansion(e) {
   e.length = top
   return e
 }
-},{}],177:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -25604,7 +25833,7 @@ return robustDeterminant")
 }
 
 generateDispatch()
-},{"robust-compress":176,"robust-scale":183,"robust-sum":186,"two-product":201}],178:[function(require,module,exports){
+},{"robust-compress":183,"robust-scale":190,"robust-sum":193,"two-product":208}],185:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -25619,7 +25848,7 @@ function robustDotProduct(a, b) {
   }
   return r
 }
-},{"robust-sum":186,"two-product":201}],179:[function(require,module,exports){
+},{"robust-sum":193,"two-product":208}],186:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -25787,7 +26016,7 @@ function generateInSphereTest() {
 }
 
 generateInSphereTest()
-},{"robust-scale":183,"robust-subtract":185,"robust-sum":186,"two-product":201}],180:[function(require,module,exports){
+},{"robust-scale":190,"robust-subtract":192,"robust-sum":193,"two-product":208}],187:[function(require,module,exports){
 "use strict"
 
 var determinant = require("robust-determinant")
@@ -25859,7 +26088,7 @@ function generateDispatch() {
 }
 
 generateDispatch()
-},{"robust-determinant":177}],181:[function(require,module,exports){
+},{"robust-determinant":184}],188:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -26050,7 +26279,7 @@ function generateOrientationProc() {
 }
 
 generateOrientationProc()
-},{"robust-scale":183,"robust-subtract":185,"robust-sum":186,"two-product":201}],182:[function(require,module,exports){
+},{"robust-scale":190,"robust-subtract":192,"robust-sum":193,"two-product":208}],189:[function(require,module,exports){
 "use strict"
 
 var robustSum = require("robust-sum")
@@ -26080,7 +26309,7 @@ function robustProduct(a, b) {
   }
   return r
 }
-},{"robust-scale":183,"robust-sum":186}],183:[function(require,module,exports){
+},{"robust-scale":190,"robust-sum":193}],190:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -26131,7 +26360,7 @@ function scaleLinearExpansion(e, scale) {
   g.length = count
   return g
 }
-},{"two-product":201,"two-sum":202}],184:[function(require,module,exports){
+},{"two-product":208,"two-sum":209}],191:[function(require,module,exports){
 "use strict"
 
 module.exports = segmentsIntersect
@@ -26179,7 +26408,7 @@ function segmentsIntersect(a0, a1, b0, b1) {
 
   return true
 }
-},{"robust-orientation":181}],185:[function(require,module,exports){
+},{"robust-orientation":188}],192:[function(require,module,exports){
 "use strict"
 
 module.exports = robustSubtract
@@ -26336,7 +26565,7 @@ function robustSubtract(e, f) {
   g.length = count
   return g
 }
-},{}],186:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 "use strict"
 
 module.exports = linearExpansionSum
@@ -26493,7 +26722,7 @@ function linearExpansionSum(e, f) {
   g.length = count
   return g
 }
-},{}],187:[function(require,module,exports){
+},{}],194:[function(require,module,exports){
 'use strict'
 
 module.exports = extractContour
@@ -26656,7 +26885,7 @@ function extractContour(cells, values, level, d) {
     vertexWeights: uweights
   }
 }
-},{"./lib/codegen":188,"ndarray":155,"ndarray-sort":154,"typedarray-pool":203}],188:[function(require,module,exports){
+},{"./lib/codegen":195,"ndarray":162,"ndarray-sort":161,"typedarray-pool":210}],195:[function(require,module,exports){
 'use strict'
 
 module.exports = getPolygonizer
@@ -26753,9 +26982,9 @@ function getPolygonizer(d) {
   }
   return alg
 }
-},{"marching-simplex-table":140,"typedarray-pool":203}],189:[function(require,module,exports){
+},{"marching-simplex-table":147,"typedarray-pool":210}],196:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],190:[function(require,module,exports){
+},{"dup":36}],197:[function(require,module,exports){
 "use strict"; "use restrict";
 
 module.exports = UnionFind;
@@ -26812,9 +27041,9 @@ UnionFind.prototype.link = function(x, y) {
 }
 
 
-},{}],191:[function(require,module,exports){
-arguments[4][134][0].apply(exports,arguments)
-},{"bit-twiddle":189,"dup":134,"union-find":190}],192:[function(require,module,exports){
+},{}],198:[function(require,module,exports){
+arguments[4][141][0].apply(exports,arguments)
+},{"bit-twiddle":196,"dup":141,"union-find":197}],199:[function(require,module,exports){
 "use strict"
 
 module.exports = simplifyPolygon
@@ -27086,7 +27315,7 @@ function simplifyPolygon(cells, positions, minArea) {
     edges: ncells
   }
 }
-},{"robust-orientation":181,"simplicial-complex":191}],193:[function(require,module,exports){
+},{"robust-orientation":188,"simplicial-complex":198}],200:[function(require,module,exports){
 "use strict"
 
 module.exports = orderSegments
@@ -27182,7 +27411,7 @@ function orderSegments(b, a) {
   }
   return ar[0] - br[0]
 }
-},{"robust-orientation":181}],194:[function(require,module,exports){
+},{"robust-orientation":188}],201:[function(require,module,exports){
 "use strict"
 
 module.exports = createSlabDecomposition
@@ -27413,7 +27642,7 @@ function createSlabDecomposition(segments) {
   }
   return new SlabDecomposition(slabs, lines, horizontal)
 }
-},{"./lib/order-segments":193,"binary-search-bounds":35,"functional-red-black-tree":73,"robust-orientation":181}],195:[function(require,module,exports){
+},{"./lib/order-segments":200,"binary-search-bounds":35,"functional-red-black-tree":73,"robust-orientation":188}],202:[function(require,module,exports){
 "use strict"
 
 var robustDot = require("robust-dot-product")
@@ -27505,7 +27734,7 @@ function negative(points, plane) {
   }
   return neg
 }
-},{"robust-dot-product":178,"robust-sum":186}],196:[function(require,module,exports){
+},{"robust-dot-product":185,"robust-sum":193}],203:[function(require,module,exports){
 /* global window, exports, define */
 
 !function() {
@@ -27725,7 +27954,7 @@ function negative(points, plane) {
     /* eslint-enable quote-props */
 }()
 
-},{}],197:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 "use strict"
 
 module.exports = surfaceNets
@@ -27933,7 +28162,7 @@ function surfaceNets(array,level) {
   }
   return proc(array,level)
 }
-},{"ndarray-extract-contour":151,"triangulate-hypercube":199,"zero-crossings":212}],198:[function(require,module,exports){
+},{"ndarray-extract-contour":158,"triangulate-hypercube":206,"zero-crossings":219}],205:[function(require,module,exports){
 'use strict'
 
 var parseUnit = require('parse-unit')
@@ -27994,7 +28223,7 @@ function toPX(str, element) {
   }
   return 1
 }
-},{"parse-unit":161}],199:[function(require,module,exports){
+},{"parse-unit":168}],206:[function(require,module,exports){
 "use strict"
 
 module.exports = triangulateCube
@@ -28028,7 +28257,7 @@ function triangulateCube(dimension) {
   }
   return result
 }
-},{"gamma":74,"permutation-parity":162,"permutation-rank":163}],200:[function(require,module,exports){
+},{"gamma":74,"permutation-parity":169,"permutation-rank":170}],207:[function(require,module,exports){
 'use strict'
 
 module.exports = createTurntableController
@@ -28601,7 +28830,7 @@ function createTurntableController(options) {
     theta,
     phi)
 }
-},{"filtered-vector":72,"gl-mat4/invert":93,"gl-mat4/rotate":97,"gl-vec3/cross":120,"gl-vec3/dot":121,"gl-vec3/normalize":124}],201:[function(require,module,exports){
+},{"filtered-vector":72,"gl-mat4/invert":97,"gl-mat4/rotate":103,"gl-vec3/cross":127,"gl-vec3/dot":128,"gl-vec3/normalize":131}],208:[function(require,module,exports){
 "use strict"
 
 module.exports = twoProduct
@@ -28635,7 +28864,7 @@ function twoProduct(a, b, result) {
 
   return [ y, x ]
 }
-},{}],202:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 "use strict"
 
 module.exports = fastTwoSum
@@ -28653,7 +28882,7 @@ function fastTwoSum(a, b, result) {
 	}
 	return [ar+br, x]
 }
-},{}],203:[function(require,module,exports){
+},{}],210:[function(require,module,exports){
 (function (global,Buffer){
 'use strict'
 
@@ -28870,7 +29099,7 @@ exports.clearCache = function clearCache() {
   }
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"bit-twiddle":36,"buffer":3,"dup":69}],204:[function(require,module,exports){
+},{"bit-twiddle":36,"buffer":3,"dup":69}],211:[function(require,module,exports){
 "use strict"; "use restrict";
 
 module.exports = UnionFind;
@@ -28933,7 +29162,7 @@ proto.link = function(x, y) {
     ++ranks[xr];
   }
 }
-},{}],205:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 "use strict"
 
 function unique_pred(list, compare) {
@@ -28992,7 +29221,7 @@ function unique(list, compare, sorted) {
 
 module.exports = unique
 
-},{}],206:[function(require,module,exports){
+},{}],213:[function(require,module,exports){
 "use strict"
 
 module.exports = createText
@@ -29019,7 +29248,7 @@ function createText(str, options) {
     options)
 }
 
-},{"./lib/vtext":207}],207:[function(require,module,exports){
+},{"./lib/vtext":214}],214:[function(require,module,exports){
 "use strict"
 
 module.exports = vectorizeText
@@ -29225,7 +29454,7 @@ function vectorizeText(str, canvas, context, options) {
   return processPixels(pixels, options, size)
 }
 
-},{"cdt2d":47,"clean-pslg":53,"ndarray":155,"planar-graph-to-polyline":166,"simplify-planar-graph":192,"surface-nets":197}],208:[function(require,module,exports){
+},{"cdt2d":47,"clean-pslg":53,"ndarray":162,"planar-graph-to-polyline":173,"simplify-planar-graph":199,"surface-nets":204}],215:[function(require,module,exports){
 var hiddenStore = require('./hidden-store.js');
 
 module.exports = createStore;
@@ -29246,7 +29475,7 @@ function createStore() {
     };
 }
 
-},{"./hidden-store.js":209}],209:[function(require,module,exports){
+},{"./hidden-store.js":216}],216:[function(require,module,exports){
 module.exports = hiddenStore;
 
 function hiddenStore(obj, key) {
@@ -29264,7 +29493,7 @@ function hiddenStore(obj, key) {
     return store;
 }
 
-},{}],210:[function(require,module,exports){
+},{}],217:[function(require,module,exports){
 // Original - @Gozola.
 // https://gist.github.com/Gozala/1269991
 // This is a reimplemented version (with a few bug fixes).
@@ -29295,7 +29524,7 @@ function weakMap() {
     }
 }
 
-},{"./create-store.js":208}],211:[function(require,module,exports){
+},{"./create-store.js":215}],218:[function(require,module,exports){
 module.exports = require('cwise-compiler')({
     args: ['array', {
         offset: [1],
@@ -29347,7 +29576,7 @@ module.exports = require('cwise-compiler')({
     funcName: 'zeroCrossings'
 })
 
-},{"cwise-compiler":64}],212:[function(require,module,exports){
+},{"cwise-compiler":64}],219:[function(require,module,exports){
 "use strict"
 
 module.exports = findZeroCrossings
@@ -29360,4 +29589,4 @@ function findZeroCrossings(array, level) {
   core(array.hi(array.shape[0]-1), cross, level)
   return cross
 }
-},{"./lib/zc-core":211}]},{},[7]);
+},{"./lib/zc-core":218}]},{},[7]);

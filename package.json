@@ -24,6 +24,9 @@
   },
   "devDependencies": {
     "3d-view-controls": "^2.2.0",
+    "babel-core": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babelify": "^8.0.0",
     "bound-points": "^1.0.0",
     "canvas-fit": "^1.5.0",
     "gl-axes3d": "^1.2.5",
@@ -32,7 +35,7 @@
     "gl-spikes3d": "^1.0.5"
   },
   "scripts": {
-    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js && browserify -o build/example_mri.js example/mri.js",
+    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js && browserify -o build/example_mri.js example/mri.js && browserify -o build/example_cone.js example/cone.js && browserify -o build/example_multi_iso.js example/multi_iso.js && browserify -o build/example_smooth_skin.js example/smooth_skin.js && browserify -o build/example_surface_points.js example/surface_points.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -45,7 +48,15 @@
   ],
   "browserify": {
     "transform": [
-      "glslify"
+      "glslify",
+      [
+        "babelify",
+        {
+          "presets": [
+            "env"
+          ]
+        }
+      ]
     ]
   },
   "author": "Mikola Lysenko, Ilmari Heikkinen",
