@@ -31,11 +31,13 @@
     "canvas-fit": "^1.5.0",
     "gl-axes3d": "^1.2.5",
     "gl-mat4": "^1.0.0",
+    "gl-scatter3d": "^1.0.10",
     "gl-select-static": "^2.0.2",
-    "gl-spikes3d": "^1.0.5"
+    "gl-spikes3d": "^1.0.5",
+    "parse-wavefront-obj": "^1.0.3"
   },
   "scripts": {
-    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js && browserify -o build/example_mri.js example/mri.js && browserify -o build/example_cone.js example/cone.js && browserify -o build/example_multi_iso.js example/multi_iso.js && browserify -o build/example_smooth_skin.js example/smooth_skin.js && browserify -o build/example_surface_points.js example/surface_points.js",
+    "build-example": "browserify -o build/example_isosurface.js example/isosurface.js && browserify -o build/example_mri.js example/mri.js && browserify -o build/example_cone.js example/cone.js && browserify -o build/example_multi_iso.js example/multi_iso.js && browserify -o build/example_smooth_skin.js example/smooth_skin.js && browserify -o build/example_surface_points.js example/surface_points.js && browserify -o build/example_brainbrowser.js example/brainbrowser.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
