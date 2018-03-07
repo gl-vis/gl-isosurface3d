@@ -467,16 +467,25 @@ exports.smoothNormals = function(mesh) {
 	return mesh;
 };
 
-exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds) {
+exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds, meshgrid) {
 	console.time('meshConvert');
 	let { vertices, normals } = mesh;
 	let [w,h,d] = dims;
 	let vertexIntensity = new Float32Array(vertices.length / 3);
-	for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
-		var x = vertices[j];
-		var y = vertices[j+1];
-		var z = vertices[j+2];
-		vertexIntensity[i] = data[z*h*w + y*w + x];
+	if (meshgrid) {
+		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
+			var x = meshgrid[0][vertices[j]];
+			var y = meshgrid[1][vertices[j+1]];
+			var z = meshgrid[2][vertices[j+2]];
+			vertexIntensity[i] = data[z*h*w + y*w + x];
+		}
+	} else {
+		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
+			var x = vertices[j];
+			var y = vertices[j+1];
+			var z = vertices[j+2];
+			vertexIntensity[i] = data[z*h*w + y*w + x];
+		}
 	}
 	let geo = {
 		positions: vertices,
