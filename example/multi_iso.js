@@ -20,20 +20,20 @@ var getData = function(fn, callback) {
 };
 
 var parseCSV = function(str) {
-  return str.replace(/^\s+|\s+$/g, '').split(/\r?\n/g).map(x => x.split(',').map(parseFloat));
+  return str.replace(/^\s+|\s+$/g, '').split(/\r?\n/g).map(function(x) { return x.split(',').map(parseFloat) });
 };
 
 var iso = function(gl, values, dimensions, bounds, isoBounds, colormap, capsColormap) {
   var isoPlot = createIsosurface({
-    values,
-    dimensions,
-    isoBounds,
+    values: values,
+    dimensions: dimensions,
+    isoBounds: isoBounds,
     vertexIntensityBounds: [-500,-400],
     smoothNormals: true,
     isoCaps: true,
     singleMesh: false,
-    colormap,
-    capsColormap,
+    colormap: colormap,
+    capsColormap: capsColormap,
     capsVertexIntensityBounds: [0, 100]
   }, bounds)
 
@@ -70,7 +70,7 @@ getData('example/data/mri.csv', function(mricsv) {
   mri.pop();
 
   var dims = [128, 27, 128]
-  var [width, height, depth] = dims;
+  var width = dims[0], height = dims[1], depth = dims[2];
   var bounds = [[0,0,0], [width, height, depth]]
 
   var meshes = [];
@@ -92,7 +92,7 @@ getData('example/data/mri.csv', function(mricsv) {
 
   var select = createSelect(gl, [canvas.width, canvas.height])
   var tickSpacing = 5;
-  var ticks = bounds[0].map((v,i) => {
+  var ticks = bounds[0].map(function(v,i) {
     var arr = [];
     var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
     var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;
@@ -112,9 +112,9 @@ getData('example/data/mri.csv', function(mricsv) {
     return;
     var pickData = select.query(x, canvas.height - y, 10)
     var pickResult = null;
-    meshes.find(m => pickResult = m.mesh.pick(pickData));
+    meshes.find(function(m) { return pickResult = m.mesh.pick(pickData) });
     if (!pickResult) {
-      meshes.find(m => pickResult = m.capMesh.pick(pickData));
+      meshes.find(function(m) { return pickResult = m.capMesh.pick(pickData) });
     }
     if(pickResult) {
       spikes.update({
@@ -151,14 +151,14 @@ getData('example/data/mri.csv', function(mricsv) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       axes.draw(cameraParams)
       spikes.draw(cameraParams)
-      meshes.forEach(m => m.draw(cameraParams));
+      meshes.forEach(function(m) { m.draw(cameraParams) });
       spikeChanged = false
     }
 
     if(needsUpdate) {
       select.shape = [canvas.width, canvas.height]
       select.begin()
-      meshes.forEach(m => m.drawPick(cameraParams));
+      meshes.forEach(function(m) { m.drawPick(cameraParams) });
       select.end()
     }
   }

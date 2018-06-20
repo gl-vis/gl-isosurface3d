@@ -27,11 +27,11 @@ var getData = function(fn, responseType, callback) {
 
 getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
 
-  const dims = [256, 256, 109];
-  const bounds = [[30, 30, 30], [256-30, 256-30, 109-30]];
-  const [dataWidth, dataHeight, dataDepth] = dims;
+  var dims = [256, 256, 109];
+  var bounds = [[30, 30, 30], [256-30, 256-30, 109-30]];
+  var dataWidth = dims[0], dataHeight = dims[1], dataDepth = dims[2];
 
-  const mri = new Uint16Array(mriBuffer);
+  var mri = new Uint16Array(mriBuffer);
   for (var i=0; i<mri.length; i++) {
     mri[i] = ((mri[i] << 8) & 0xff00) | (mri[i] >> 8);
   }
@@ -98,7 +98,7 @@ getData('example/data/MRbrain.txt', 'arraybuffer', function(mriBuffer) {
 
   var select = createSelect(gl, [canvas.width, canvas.height])
   var tickSpacing = 5;
-  var ticks = bounds[0].map((v,i) => {
+  var ticks = bounds[0].map(function(v,i) {
     var arr = [];
     var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
     var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;

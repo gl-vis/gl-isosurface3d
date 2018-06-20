@@ -25,8 +25,6 @@
   "devDependencies": {
     "3d-view-controls": "^2.2.0",
     "babel-core": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
-    "babelify": "^8.0.0",
     "bound-points": "^1.0.0",
     "canvas-fit": "^1.5.0",
     "gl-axes3d": "^1.2.5",
@@ -51,15 +49,7 @@
   ],
   "browserify": {
     "transform": [
-      "glslify",
-      [
-        "babelify",
-        {
-          "presets": [
-            "env"
-          ]
-        }
-      ]
+      "glslify"
     ]
   },
   "author": "Mikola Lysenko, Ilmari Heikkinen",

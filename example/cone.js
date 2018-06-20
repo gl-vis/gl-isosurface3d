@@ -16,8 +16,8 @@ var createConePlot = require('gl-cone3d')
 
 var wind = require('./dataset-wind')
 
-var idxs = wind.positions.map((p, idx) => ({p, idx}));
-idxs.sort((a,b) => {
+var idxs = wind.positions.map(function(p, idx) { return {p: p, idx: idx} });
+idxs.sort(function(a,b) {
   var zd = a.p[2] - b.p[2];
   var yd = a.p[1] - b.p[1];
   var xd = a.p[0] - b.p[0];
@@ -29,9 +29,9 @@ var nw = {
   vectors: [],
 };
 
-idxs.forEach(({p, idx}, i) => {
-  nw.positions[i] = wind.positions[idx];
-  nw.vectors[i] = wind.vectors[idx];
+idxs.forEach(function(pidx, i) {
+  nw.positions[i] = wind.positions[pidx.idx];
+  nw.vectors[i] = wind.vectors[pidx.idx];
 })
 
 console.time("Total mesh creation time")
@@ -91,7 +91,7 @@ var coneMesh = createMesh(gl, conePlot)
 console.timeEnd("Cone plot creation");
 
 var camera = createCamera(canvas, {
-  eye:    bounds[1].map(x => x*2),
+  eye:    bounds[1].map(function(x) { return x*2 }),
   center: [0.5*(bounds[0][0]+bounds[1][0]),
            0.5*(bounds[0][1]+bounds[1][1]),
            0.5*(bounds[0][2]+bounds[1][2])],
@@ -112,7 +112,7 @@ mat4.scale(meshMatrix, meshMatrix, diff);
 
 var select = createSelect(gl, [canvas.width, canvas.height])
 var tickSpacing = 5;
-var ticks = bounds[0].map((v,i) => {
+var ticks = bounds[0].map(function(v,i) {
   var arr = [];
   var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
   var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;

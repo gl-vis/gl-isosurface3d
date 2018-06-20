@@ -20,7 +20,7 @@ var getData = function(fn, callback) {
 };
 
 var parseCSV = function(str) {
-  return str.replace(/^\s+|\s+$/g, '').split(/\r?\n/g).map(x => x.split(',').map(parseFloat));
+  return str.replace(/^\s+|\s+$/g, '').split(/\r?\n/g).map(function(x) { return x.split(',').map(parseFloat) });
 };
 
 
@@ -32,7 +32,7 @@ getData('example/data/mri.csv', function(mricsv) {
   mri.pop();
 
   var dims = [128, 27, 128]
-  var [width, height, depth] = dims;
+  var width = dims[0], height = dims[1], depth = dims[2];
   var bounds = [[0,0,0], [width, height, depth]]
 
   console.time("Total mesh creation time")
@@ -72,7 +72,7 @@ getData('example/data/mri.csv', function(mricsv) {
 
   var select = createSelect(gl, [canvas.width, canvas.height])
   var tickSpacing = 5;
-  var ticks = bounds[0].map((v,i) => {
+  var ticks = bounds[0].map(function(v,i) {
     var arr = [];
     var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
     var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;
