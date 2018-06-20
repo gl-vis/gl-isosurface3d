@@ -2097,196 +2097,193 @@ process.chdir = function (dir) {
 process.umask = function() { return 0; };
 
 },{}],6:[function(require,module,exports){
-'use strict';
-
-var createCamera = require('3d-view-controls');
-var getBounds = require('bound-points');
-var perspective = require('gl-mat4/perspective');
-var createAxes = require('gl-axes3d');
-var createSpikes = require('gl-spikes3d');
-var createSelect = require('gl-select-static');
-var getBounds = require('bound-points');
-var mouseChange = require('mouse-change');
-var createPoints = require('gl-scatter3d');
-var createMesh = require('gl-mesh3d');
-var createIsosurface = require('../isosurface');
+var createCamera = require('3d-view-controls')
+var getBounds    = require('bound-points')
+var perspective  = require('gl-mat4/perspective')
+var createAxes   = require('gl-axes3d')
+var createSpikes = require('gl-spikes3d')
+var createSelect = require('gl-select-static')
+var getBounds    = require('bound-points')
+var mouseChange  = require('mouse-change')
+var createPoints = require('gl-scatter3d')
+var createMesh = require('gl-mesh3d')
+var createIsosurface = require('../isosurface')
 
 var mat4 = require('gl-mat4');
 
 var MniObjReader = require('./lib/MniObjReader');
 
-var getData = function getData(fn, callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.onload = function () {
+var getData = function(fn, callback) {
+  var xhr = new XMLHttpRequest;
+  xhr.onload = function() {
     callback(xhr.responseText);
   };
   xhr.open('GET', fn, true);
   xhr.send();
 };
 
-getData('example/data/realct.obj', function (mniObjString) {
-  getData('example/data/realct.txt', function (vertexIntensities) {
-    vertexIntensities = vertexIntensities.split('\n');
-    vertexIntensities.pop();
-    vertexIntensities = vertexIntensities.map(parseFloat);
+ 
+getData('example/data/realct.obj', function(mniObjString) {
+getData('example/data/realct.txt', function(vertexIntensities) {
+  vertexIntensities = vertexIntensities.split('\n');
+  vertexIntensities.pop();
+  vertexIntensities = vertexIntensities.map(parseFloat);
 
-    var bounds = [[-100, -150, -100], [100, 100, 100]];
+  var bounds = [[-100,-150,-100], [100, 100, 100]]
 
-    var canvas = document.createElement('canvas');
-    document.body.appendChild(canvas);
-    window.addEventListener('resize', require('canvas-fit')(canvas));
-    var gl = canvas.getContext('webgl');
+  var canvas = document.createElement('canvas')
+  document.body.appendChild(canvas)
+  window.addEventListener('resize', require('canvas-fit')(canvas))
+  var gl = canvas.getContext('webgl')
 
-    var camera = createCamera(canvas, {
-      eye: [-250, 250, 250],
-      up: [0, 0, 1],
-      center: [0.5 * (bounds[0][0] + bounds[1][0]), 0.5 * (bounds[0][1] + bounds[1][1]), 0.5 * (bounds[0][2] + bounds[1][2])],
-      zoomMax: 500,
-      mode: 'turntable'
-    });
+  var camera = createCamera(canvas, {
+    eye: [-250, 250, 250],
+    up: [0, 0, 1],
+    center: [0.5*(bounds[0][0]+bounds[1][0]),
+             0.5*(bounds[0][1]+bounds[1][1]),
+             0.5*(bounds[0][2]+bounds[1][2])],
+    zoomMax: 500,
+    mode: 'turntable'
+  })
 
-    // build a parser
-    var mniObjReader = new MniObjReader();
+  // build a parser
+  var mniObjReader = new MniObjReader();
 
-    // feed the parser with some string content of a mniobj file
-    mniObjReader.parse(mniObjString);
+  // feed the parser with some string content of a mniobj file
+  mniObjReader.parse( mniObjString );
 
-    // a whole lot of data, you may not use all of them
-    var shapeData = mniObjReader.getShapeData();
-    console.log(shapeData);
+  // a whole lot of data, you may not use all of them
+  var shapeData = mniObjReader.getShapeData();
 
-    // these are the very interesting data you want to use:
-    var indices = mniObjReader.getShapeRawIndices(0); // Uint32Array
-    var positions = mniObjReader.getRawVertices(); // Float32Array
-    var normals = mniObjReader.getRawNormals(); // Float32Array
-    var colors = mniObjReader.getRawColors(); // Uint8Array
-    var surfaceProperties = mniObjReader.getSurfaceProperties(); // object
+  // these are the very interesting data you want to use:
+  var indices = mniObjReader.getShapeRawIndices(0); // Uint32Array
+  var positions = mniObjReader.getRawVertices();  // Float32Array
+  var normals = mniObjReader.getRawNormals(); // Float32Array
+  var colors = mniObjReader.getRawColors(); // Uint8Array
+  var surfaceProperties = mniObjReader.getSurfaceProperties(); // object
 
-    var threeify = function threeify(arr, scaleFactor) {
-      var res = [];
-      for (var i = 0; i < arr.length; i += 3) {
-        res.push([arr[i] * scaleFactor, arr[i + 1] * scaleFactor, arr[i + 2] * scaleFactor]);
-      }
-      return res;
-    };
-
-    var mesh = createMesh(gl, {
-      positions: threeify(positions, 1),
-      cells: threeify(indices, 1),
-      vertexNormals: threeify(normals, 1),
-      vertexIntensity: vertexIntensities,
-      colormap: "portland"
-    });
-
-    var initialData = {
-      gl: gl,
-      position: [],
-      color: [],
-      size: 30,
-      orthographic: true,
-      lineColor: [0, 0, 0],
-      lineWidth: 1,
-      project: [true, true, true]
-    };
-
-    var points = createPoints(initialData);
-
-    var select = createSelect(gl, [canvas.width, canvas.height]);
-    var tickSpacing = 5;
-    var ticks = bounds[0].map(function (v, i) {
-      var arr = [];
-      var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
-      var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;
-      for (var tick = firstTick; tick <= lastTick; tick += tickSpacing) {
-        if (tick === -0) tick = 0;
-        arr.push({ x: tick, text: tick.toString() });
-      }
-      return arr;
-    });
-    var axes = createAxes(gl, { bounds: bounds, ticks: ticks });
-    var spikes = createSpikes(gl, {
-      bounds: bounds
-    });
-    var spikeChanged = false;
-
-    canvas.ondblclick = function (ev) {
-      ev.preventDefault();
-      var x = ev.clientX;
-      var y = ev.clientY;
-      var pickData = select.query(x, canvas.height - y, 10);
-      var pickResult = mesh.pick(pickData);
-      if (pickResult) {
-        var pos = pickResult.position;
-        var color = [255, 0, 0];
-        initialData.position.push(pos);
-        initialData.color.push(color);
-        points.update(initialData);
-      }
-    };
-
-    mouseChange(canvas, function (buttons, x, y) {
-      var pickData = select.query(x, canvas.height - y, 10);
-      var pickResult = mesh.pick(pickData);
-      if (pickResult) {
-        spikes.update({
-          position: pickResult.position,
-          enabled: [true, true, true]
-        });
-        spikeChanged = true;
-      } else {
-        spikeChanged = spikes.enabled[0];
-        spikes.update({
-          enabled: [false, false, false]
-        });
-      }
-    });
-
-    var doubleY = mat4.create();
-    mat4.scale(doubleY, doubleY, [1, 1, 1]);
-
-    function render() {
-      requestAnimationFrame(render);
-
-      gl.enable(gl.DEPTH_TEST);
-
-      var needsUpdate = camera.tick();
-      var cameraParams = {
-        projection: perspective([], Math.PI / 4, canvas.width / canvas.height, 0.01, 1000),
-        view: camera.matrix,
-        model: doubleY
-      };
-
-      if (needsUpdate || spikeChanged) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        axes.draw(cameraParams);
-        spikes.draw(cameraParams);
-        mesh.draw(cameraParams);
-        if (initialData.position.length > 0) {
-          gl.enable(gl.POLYGON_OFFSET_FILL);
-          gl.polygonOffset(1, -20);
-          points.axes = axes;
-          points.draw(cameraParams);
-          gl.disable(gl.POLYGON_OFFSET_FILL);
-        }
-        spikeChanged = false;
-      }
-
-      if (needsUpdate) {
-        select.shape = [canvas.width, canvas.height];
-        select.begin();
-        mesh.drawPick(cameraParams);
-        select.end();
-      }
+  var threeify = function(arr, scaleFactor) {
+    var res = [];
+    for (var i=0; i<arr.length; i+=3) {
+      res.push([arr[i]*scaleFactor, arr[i+1]*scaleFactor, arr[i+2]*scaleFactor]);
     }
-    render();
+    return res;
+  };
+
+  var mesh = createMesh(gl, {
+    positions: threeify(positions, 1),
+    cells: threeify(indices, 1),
+    vertexNormals: threeify(normals, 1),
+    vertexIntensity: vertexIntensities,
+    colormap: "portland"
   });
-});
 
-},{"../isosurface":8,"./lib/MniObjReader":7,"3d-view-controls":13,"bound-points":39,"canvas-fit":47,"gl-axes3d":77,"gl-mat4":98,"gl-mat4/perspective":103,"gl-mesh3d":115,"gl-scatter3d":126,"gl-select-static":127,"gl-spikes3d":136,"mouse-change":167}],7:[function(require,module,exports){
-"use strict";
+  var initialData = {
+    gl: gl,
+    position: [],
+    color: [],
+    size: 30,
+    orthographic: true,
+    lineColor: [0,0,0],
+    lineWidth: 1,
+    project: [true, true, true]
+  }
 
+  var points = createPoints(initialData);
+
+  var select = createSelect(gl, [canvas.width, canvas.height])
+  var tickSpacing = 5;
+  var ticks = bounds[0].map(function(v,i) {
+    var arr = [];
+    var firstTick = Math.ceil(bounds[0][i] / tickSpacing) * tickSpacing;
+    var lastTick = Math.floor(bounds[1][i] / tickSpacing) * tickSpacing;
+    for (var tick = firstTick; tick <= lastTick; tick += tickSpacing) {
+      if (tick === -0) tick = 0;
+      arr.push({x: tick, text: tick.toString()});
+    }
+    return arr;
+  });
+  var axes = createAxes(gl, { bounds: bounds, ticks: ticks })
+  var spikes = createSpikes(gl, {
+    bounds: bounds
+  })
+  var spikeChanged = false
+
+  canvas.ondblclick = function(ev) {
+    ev.preventDefault();
+    var x = ev.clientX;
+    var y = ev.clientY;
+    var pickData = select.query(x, canvas.height - y, 10)
+    var pickResult = mesh.pick(pickData);
+    if(pickResult) {
+      var pos = pickResult.position;
+      var color = [255, 0, 0];
+      initialData.position.push(pos);
+      initialData.color.push(color);
+      points.update(initialData);
+    }
+  };
+
+  mouseChange(canvas, function(buttons, x, y) {
+    var pickData = select.query(x, canvas.height - y, 10)
+    var pickResult = mesh.pick(pickData);
+    if(pickResult) {
+      spikes.update({
+        position: pickResult.position,
+        enabled: [true, true, true]
+      })
+      spikeChanged = true
+    } else {
+      spikeChanged = spikes.enabled[0]
+      spikes.update({
+        enabled: [false, false, false]
+      })
+    }
+  })
+
+  var doubleY = mat4.create();
+  mat4.scale(doubleY, doubleY, [1,1,1]);
+
+  function render() {
+    requestAnimationFrame(render)
+
+    gl.enable(gl.DEPTH_TEST)
+
+    var needsUpdate = camera.tick()
+    var cameraParams = {
+      projection: perspective([], Math.PI/4, canvas.width/canvas.height, 0.01, 1000),
+      view: camera.matrix,
+      model: doubleY
+    }
+
+    if(needsUpdate || spikeChanged) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.viewport(0, 0, canvas.width, canvas.height)
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+      axes.draw(cameraParams)
+      spikes.draw(cameraParams)
+      mesh.draw(cameraParams)
+      if (initialData.position.length > 0) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(1, -20);
+        points.axes = axes;
+        points.draw(cameraParams)
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
+      spikeChanged = false
+    }
+
+    if(needsUpdate) {
+      select.shape = [canvas.width, canvas.height]
+      select.begin()
+      mesh.drawPick(cameraParams)
+      select.end()
+    }
+  }
+  render()
+})
+})
+},{"../isosurface":8,"./lib/MniObjReader":7,"3d-view-controls":13,"bound-points":38,"canvas-fit":46,"gl-axes3d":75,"gl-mat4":96,"gl-mat4/perspective":101,"gl-mesh3d":113,"gl-scatter3d":124,"gl-select-static":125,"gl-spikes3d":134,"mouse-change":167}],7:[function(require,module,exports){
 /**
 * MniObjReader is a parser of mniobj surface files. This version is an atempt of
 * making a free from dependency independant module. It is based on the code witten
@@ -2300,15 +2297,16 @@ getData('example/data/realct.obj', function (mniObjString) {
 * @author: Tarek Sherif
 */
 
+
 /**
 * Constructor of the MniObjReader.
 */
-var MniObjReader = function MniObjReader() {
+var MniObjReader = function(){
   this._stack = null;
   this._stackIndex = null;
   this._tempResult = null;
   this._shapeData = null;
-};
+}
 
 if (typeof module !== 'undefined') {
   module.exports = MniObjReader;
@@ -2321,32 +2319,34 @@ if (typeof module !== 'undefined') {
 * are lost and only remains the data. This is to rebuild a proper MniObjReader.
 * @param {MniObjReader} MniObjReaderInstance - the instance to copy the data from.
 */
-MniObjReader.prototype.copy = function (MniObjReaderInstance) {
+MniObjReader.prototype.copy = function( MniObjReaderInstance ) {
   this._stack = MniObjReaderInstance._stack;
-  this._stackIndex = MniObjReaderInstance._stackIndex;
-  this._tempResult = MniObjReaderInstance._tempResult;
+  this._stackIndex = MniObjReaderInstance._stackIndex
+  this._tempResult = MniObjReaderInstance._tempResult
   this._shapeData = MniObjReaderInstance._shapeData;
-};
+}
+
 
 /**
 * Parse the nmiobj string.
 * @param {String} objString - This string is obviously taken out of a obj file
 */
-MniObjReader.prototype.parse = function (objString) {
-  this._parseRawData(objString);
+MniObjReader.prototype.parse = function(objString) {
+  this._parseRawData( objString );
   this._arrangeData();
-};
+}
+
 
 /**
 * Parse a obj string
 * @param {String} objString - content of the obj file
 */
-MniObjReader.prototype._parseRawData = function (objString) {
+MniObjReader.prototype._parseRawData = function( objString ){
   this._stack = objString.trim().split(/\s+/).reverse();
   this._stackIndex = this._stack.length - 1;
   this._tempResult = {};
 
-  var splitHemispheres = false; //TODO remove that and the code that depends on that
+  var splitHemispheres = false;  //TODO remove that and the code that depends on that
   var objectClass = this._popStack();
   var start, end, nitems;
   var indices, endIndices;
@@ -2358,9 +2358,11 @@ MniObjReader.prototype._parseRawData = function (objString) {
   // into two separate models.)
   this._tempResult.split = false;
 
-  this._tempResult.type = objectClass === "P" ? "polygon" : objectClass === "L" ? "line" : objectClass;
+  this._tempResult.type = objectClass === "P" ? "polygon" :
+                objectClass === "L" ? "line" :
+                objectClass;
 
-  if (this._tempResult.type === "polygon") {
+  if(this._tempResult.type === "polygon") {
     this._parseSurfProp();
     this._tempResult.numVertices = parseInt(this._popStack(), 10);
     this._parseVertices();
@@ -2381,8 +2383,8 @@ MniObjReader.prototype._parseRawData = function (objString) {
   this._parseEndIndices();
   this._parseIndices();
 
-  if (this._tempResult.type === "polygon") {
-    if (splitHemispheres) {
+  if (this._tempResult.type === "polygon" ) {
+    if (splitHemispheres){
       this._tempResult.split = true;
       this._splitHemispheres();
     }
@@ -2392,8 +2394,8 @@ MniObjReader.prototype._parseRawData = function (objString) {
     nitems = this._tempResult.nitems;
     lineIndexSize = lineIndexCounter = 0;
 
-    for (var i = 0; i < nitems; i++) {
-      if (i === 0) {
+    for (var i = 0; i < nitems; i++){
+      if (i === 0){
         start = 0;
       } else {
         start = endIndices[i - 1];
@@ -2405,8 +2407,8 @@ MniObjReader.prototype._parseRawData = function (objString) {
 
     lineIndices = new Uint32Array(lineIndexSize);
 
-    for (var i = 0; i < nitems; i++) {
-      if (i === 0) {
+    for (var i = 0; i < nitems; i++){
+      if (i === 0){
         start = 0;
       } else {
         start = endIndices[i - 1];
@@ -2425,51 +2427,66 @@ MniObjReader.prototype._parseRawData = function (objString) {
 
     this._tempResult.indices = lineIndices;
   }
-};
+}
+
 
 /**
 * [PRIVATE]
 * Rearange the data from _tempResult to _shapeData
 */
-MniObjReader.prototype._arrangeData = function () {
+MniObjReader.prototype._arrangeData = function() {
 
-  this._shapeData = {
-    type: this._tempResult.type,
-    vertices: this._tempResult.vertices,
-    normals: this._tempResult.normals,
-    colors: this._tempResult.colors,
-    surfaceProperties: this._tempResult.surfaceProperties,
-    split: this._tempResult.split,
-    error: this._tempResult.error,
-    errorMessage: this._tempResult.errorMessage
-  };
+    this._shapeData = {
+      type: this._tempResult.type,
+      vertices: this._tempResult.vertices,
+      normals: this._tempResult.normals,
+      colors: this._tempResult.colors,
+      surfaceProperties: this._tempResult.surfaceProperties,
+      split: this._tempResult.split,
+      error: this._tempResult.error,
+      errorMessage: this._tempResult.errorMessage
+    };
 
-  var transfer = [this._shapeData.vertices.buffer, this._shapeData.colors.buffer];
+    var transfer = [
+      this._shapeData.vertices.buffer,
+      this._shapeData.colors.buffer
+    ];
 
-  if (this._shapeData.normals) {
-    transfer.push(this._shapeData.normals.buffer);
-  }
+    if (this._shapeData.normals) {
+      transfer.push(this._shapeData.normals.buffer);
+    }
 
-  if (this._shapeData.split) {
-    this._shapeData.shapes = [{ indices: this._tempResult.left.indices }, { indices: this._tempResult.right.indices }];
+    if (this._shapeData.split) {
+      this._shapeData.shapes = [
+        { indices: this._tempResult.left.indices },
+        { indices: this._tempResult.right.indices }
+      ];
 
-    transfer.push(this._tempResult.left.indices.buffer, this._tempResult.right.indices.buffer);
-  } else {
-    this._shapeData.shapes = [{ indices: this._tempResult.indices }];
-    transfer.push(this._tempResult.indices.buffer);
-  }
+      transfer.push(
+        this._tempResult.left.indices.buffer,
+        this._tempResult.right.indices.buffer
+      );
+    } else {
+      this._shapeData.shapes = [
+        { indices: this._tempResult.indices }
+      ];
+      transfer.push(
+        this._tempResult.indices.buffer
+      );
+    }
 
-  // unroll colors if necessary
-  if (this._shapeData.colors.length === 4) {
-    this._unrollColors();
-  }
-};
+    // unroll colors if necessary
+    if(this._shapeData.colors.length === 4) {
+      this._unrollColors();
+    }
+}
+
 
 /**
 * [PRIVATE]
 * From a single color, make a typed array (Uint8) of colors.
 */
-MniObjReader.prototype._unrollColors = function () {
+MniObjReader.prototype._unrollColors = function() {
   var dataColor0, dataColor1, dataColor2, dataColor3;
   var count;
   var nbTriangles = this._shapeData.vertices.length / 3;
@@ -2481,21 +2498,22 @@ MniObjReader.prototype._unrollColors = function () {
   dataColor2 = this._shapeData.colors[2];
   dataColor3 = this._shapeData.colors[3];
 
-  for (var i = 0; i < arraySize; i += 4) {
-    unrolledColors[i] = dataColor0 * 255;
+  for(var i=0; i<arraySize; i+=4){
+    unrolledColors[i]     = dataColor0 * 255;
     unrolledColors[i + 1] = dataColor1 * 255;
     unrolledColors[i + 2] = dataColor2 * 255;
     unrolledColors[i + 3] = dataColor3 * 255;
   }
 
   this._shapeData.colors = unrolledColors;
-};
+}
+
 
 /**
 * [PRIVATE]
 * Parse surface properties from the raw data.
 */
-MniObjReader.prototype._parseSurfProp = function () {
+MniObjReader.prototype._parseSurfProp = function() {
   if (this._tempResult.type === "polygon") {
     this._tempResult.surfaceProperties = {
       ambient: parseFloat(this._popStack()),
@@ -2504,18 +2522,20 @@ MniObjReader.prototype._parseSurfProp = function () {
       specularScattering: parseFloat(this._popStack()),
       transparency: parseFloat(this._popStack())
     };
-  } else if (this._tempResult.type === "line") {
+
+  }else if (this._tempResult.type === "line") {
     this._tempResult.surfaceProperties = {
       width: this._popStack()
     };
   }
-};
+}
+
 
 /**
 * [PRIVATE]
 * Parse the vertices from the raw data.
 */
-MniObjReader.prototype._parseVertices = function () {
+MniObjReader.prototype._parseVertices = function() {
   var count = this._tempResult.numVertices * 3;
   var vertices = new Float32Array(count);
   var that = this;
@@ -2525,13 +2545,14 @@ MniObjReader.prototype._parseVertices = function () {
   }
 
   this._tempResult.vertices = vertices;
-};
+}
+
 
 /**
 * [PRIVATE]
 * Parse the normal vector from the raw data.
 */
-MniObjReader.prototype._parseNormals = function () {
+MniObjReader.prototype._parseNormals = function() {
   var count = this._tempResult.numVertices * 3;
   var normals = new Float32Array(count);
 
@@ -2540,32 +2561,33 @@ MniObjReader.prototype._parseNormals = function () {
   }
 
   this._tempResult.normals = normals;
-};
+}
+
 
 /**
 * [PRIVATE]
 * Parse the color from the raw data.
 */
-MniObjReader.prototype._parseColors = function () {
+MniObjReader.prototype._parseColors = function() {
   var colorFlag = parseInt(this._popStack(), 10);
   var colors;
   var count;
 
   if (colorFlag === 0) {
     colors = new Float32Array(4);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 4; i++){
       colors[i] = parseFloat(this._popStack());
     }
   } else if (colorFlag === 1) {
     count = this._tempResult.num_polygons * 4;
     colors = new Float32Array(count);
-    for (var i = 0; i < count; i++) {
+    for (var i = 0; i < count; i++){
       colors[i] = parseFloat(this._popStack());
     }
   } else if (colorFlag === 2) {
     count = this._tempResult.numVertices * 4;
     colors = new Float32Array(count);
-    for (var i = 0; i < count; i++) {
+    for (var i = 0; i < count; i++){
       colors[i] = parseFloat(this._popStack());
     }
   } else {
@@ -2575,29 +2597,31 @@ MniObjReader.prototype._parseColors = function () {
 
   this._tempResult.colorFlag = colorFlag;
   this._tempResult.colors = colors;
-};
+}
+
 
 /**
 * [PRIVATE]
 * Not sure how useful endIndices are, it was used in BrainBrowser so I kept them.
 * (is that useful?)
 */
-MniObjReader.prototype._parseEndIndices = function () {
+MniObjReader.prototype._parseEndIndices = function() {
   var count = this._tempResult.nitems;
   var endIndices = new Uint32Array(count);
 
-  for (var i = 0; i < count; i++) {
+  for(var i = 0; i < count; i++){
     endIndices[i] = parseInt(this._popStack(), 10);
   }
 
   this._tempResult.endIndices = endIndices;
-};
+}
+
 
 /**
 * [PRIVATE]
 * Reads the vertices indices to use to make triangles.
 */
-MniObjReader.prototype._parseIndices = function () {
+MniObjReader.prototype._parseIndices = function() {
   var count = this._stackIndex + 1;
   var indices = new Uint32Array(count);
 
@@ -2606,14 +2630,15 @@ MniObjReader.prototype._parseIndices = function () {
   }
 
   this._tempResult.indices = indices;
-};
+}
+
 
 /**
 * [NOT USED]
 * This is legacy code I left from the reader in BrainBrowser. Since splitHemispheres is
 * hardcoded to false, this is not called.
 */
-MniObjReader.prototype._splitHemispheres = function () {
+MniObjReader.prototype._splitHemispheres = function() {
   var numIndices = this._tempResult.indices.length;
 
   this._tempResult.left = {
@@ -2623,68 +2648,76 @@ MniObjReader.prototype._splitHemispheres = function () {
   this._tempResult.right = {
     indices: new Uint32Array(Array.prototype.slice.call(this._tempResult.indices, numIndices / 2))
   };
-};
+}
+
 
 /**
 * [PRIVATE]
 * pop the raw data (big string file)
 * @return {String}
 */
-MniObjReader.prototype._popStack = function () {
+MniObjReader.prototype._popStack = function() {
   return this._stack[this._stackIndex--];
-};
+}
+
 
 /**
 * [DEBUGGING]
 * @return {Object} the entire shapeData object.
 */
-MniObjReader.prototype.getShapeData = function () {
+MniObjReader.prototype.getShapeData = function() {
   return this._shapeData;
-};
+}
+
 
 /**
 * @return the number of shapes encoded in the file
 */
-MniObjReader.prototype.getNumberOfShapes = function () {
+MniObjReader.prototype.getNumberOfShapes = function() {
   return this._shapeData.shapes.length;
-};
+}
+
 
 /**
 * Returns the index of vertices to be used to make triangles, as a typed array.
 * @return {Uint32Array} Since triangles have 3 vertices, the array contains index such as
 * [i0, i1, i2, i0, i1, i2, ...].
 */
-MniObjReader.prototype.getShapeRawIndices = function (shapeNum) {
-  if (shapeNum >= 0 && shapeNum < this._shapeData.shapes.length) {
+MniObjReader.prototype.getShapeRawIndices = function(shapeNum) {
+  if(shapeNum >= 0 && shapeNum<this._shapeData.shapes.length){
     return this._shapeData.shapes[shapeNum].indices;
-  } else {
+  }else{
     return null;
   }
-};
+}
+
 
 /**
 * Returns the vertice position as a typed array.
 * @return {Float32Array} of points encoded like [x, y, z, x, y, z, ...]
 */
-MniObjReader.prototype.getRawVertices = function () {
+MniObjReader.prototype.getRawVertices = function() {
   return this._shapeData.vertices;
-};
+}
+
 
 /**
 * Returns the normal vectors as a typed array.
 * @return {Float32Array} of normal vector encoded like [x, y, z, x, y, z, ...]
 */
-MniObjReader.prototype.getRawNormals = function () {
+MniObjReader.prototype.getRawNormals = function() {
   return this._shapeData.normals;
-};
+}
+
 
 /**
 * Get the colors encoded like [r, g, b, a, r, g, b, a, ...]
 * @return {Float32Array} of size 4 or of size 4xnumOfVertices
 */
-MniObjReader.prototype.getRawColors = function () {
+MniObjReader.prototype.getRawColors = function(){
   return this._shapeData.colors;
-};
+}
+
 
 /**
 * The surface properties contains transparency info about specularity transparency
@@ -2692,27 +2725,25 @@ MniObjReader.prototype.getRawColors = function () {
 * May be used when building a material, but this is not mandatory.
 * @return {Object}
 */
-MniObjReader.prototype.getSurfaceProperties = function () {
+MniObjReader.prototype.getSurfaceProperties = function(){
   return this._shapeData.surfaceProperties;
-};
-
+}
 },{}],8:[function(require,module,exports){
 "use strict";
 
-var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
-
 var createTriMesh = require('./lib/trimesh');
 
-exports = module.exports = function (params, bounds) {
+var LOG_TIMINGS = false;
+
+exports = module.exports = function(params, bounds) {
+	if (params.logTimings) {
+		LOG_TIMINGS = true;
+	}
 	var dims = params.dimensions;
 	var data = params.values;
-
-	var _ref = params.isoBounds || [1, 1 / 0],
-	    _ref2 = _slicedToArray(_ref, 2),
-	    isoMin = _ref2[0],
-	    isoMax = _ref2[1];
-
-	var isosurf = exports.marchingCubes(dims, data, isoMin, isoMax, bounds);
+	var isoBounds = params.isoBounds || [1, 1/0];
+	var isoMin = isoBounds[0], isoMax = isoBounds[1]; 
+	var isosurf = exports.marchingCubes(dims, data, isoMin, isoMax, bounds)
 	if (params.smoothNormals) {
 		exports.smoothNormals(isosurf);
 	}
@@ -2731,52 +2762,35 @@ exports = module.exports = function (params, bounds) {
 	if (isocapsMesh) {
 		isoPlot.caps = isocapsMesh;
 	}
+	if (params.logTimings) {
+		LOG_TIMINGS = false;
+	}
 	return isoPlot;
 };
 
 exports.createTriMesh = createTriMesh;
 
-var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals;
+var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
 
-var geoTable = [new Float32Array([]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1]), new Float32Array([1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0]), new Float32Array([0, 0, 0, 0, 1, 1, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0]), new Float32Array([1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1]), new Float32Array([0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0]), new Float32Array([1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1]), new Float32Array([0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1]), new Float32Array([1, 0, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0]), new Float32Array([0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0]), new Float32Array([0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1]), new Float32Array([1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0]), new Float32Array([0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1]), new Float32Array([0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1]), new Float32Array([0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1]), new Float32Array([1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1]), new Float32Array([1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1]), new Float32Array([0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1]), new Float32Array([1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0]), new Float32Array([1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0]), new Float32Array([0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1]), new Float32Array([0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0]), new Float32Array([1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1]), new Float32Array([1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1]), new Float32Array([0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1]), new Float32Array([1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1]), new Float32Array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1]), new Float32Array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1]), new Float32Array([0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1]), new Float32Array([1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1]), new Float32Array([0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1]), new Float32Array([0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0]), new Float32Array([1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1]), new Float32Array([1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1]), new Float32Array([1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]), new Float32Array([1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0]), new Float32Array([1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1]), new Float32Array([0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0]), new Float32Array([1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0]), new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1]), new Float32Array([1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1]), new Float32Array([0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1]), new Float32Array([0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0]), new Float32Array([0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1]), new Float32Array([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0]), new Float32Array([1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0]), new Float32Array([1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1]), new Float32Array([1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 0, 0, 1, 1, 1, 0, 1]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1]), new Float32Array([0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1]), new Float32Array([1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1]), new Float32Array([1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1]), new Float32Array([0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1]), new Float32Array([0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1]), new Float32Array([0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1]), new Float32Array([1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0]), new Float32Array([0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]), new Float32Array([1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0]), new Float32Array([0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1]), new Float32Array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0]), new Float32Array([0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1]), new Float32Array([0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1]), new Float32Array([0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1]), new Float32Array([1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1]), new Float32Array([0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1]), new Float32Array([0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0]), new Float32Array([1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1]), new Float32Array([1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0]), new Float32Array([0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0]), new Float32Array([0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0]), new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1]), new Float32Array([1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0]), new Float32Array([1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0]), new Float32Array([1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0]), new Float32Array([0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0]), new Float32Array([1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1]), new Float32Array([0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1]), new Float32Array([1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1]), new Float32Array([1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1]), new Float32Array([1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0]), new Float32Array([0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0]), new Float32Array([1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1]), new Float32Array([0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1]), new Float32Array([1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0]), new Float32Array([1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]), new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]), new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1]), new Float32Array([0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0]), new Float32Array([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0]), new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0]), new Float32Array([0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0]), new Float32Array([0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0]), new Float32Array([0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0]), new Float32Array([1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]), new Float32Array([0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]), new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([])];
-var normalTable = [new Float32Array([]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([-1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([-1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, -1, 0, -1, -1, 0, -1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, -1, 0, -1, -1, 0, -1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 1, 0, -1, 1, 0, -1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 1, 0, -1, 1, 0, -1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, -1, 0, 1, -1, 0, 1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, -1, 0, 1, -1, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1, -1, 0, 1, -1, 0, 1, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 1, 0, -1, 1, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([-1, 1, 1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([-1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1]), new Float32Array([1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, -1, 0, 1, -1, 0, 1, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, -1, 1, 1, -1, 1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1]), new Float32Array([-1, 0, 1, -1, 0, 1, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 1, 0, -1, 1, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0]), new Float32Array([-1, -1, 1, -1, -1, 1, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]), new Float32Array([-1, -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, 1, 1, -1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1, -1, 0, -1, -1, 0, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]), new Float32Array([-1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, -1, 1, 1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 1, -1, -1, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([-1, 0, -1, -1, 0, -1, -1, 0, -1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1]), new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -1, -1, 0, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, 1, -1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, -1, 1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 1, 0, 1, 1, 0, 1, 1, 0, -1, 0, 1, -1, 0, 1, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([-1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]), new Float32Array([1, 0, -1, 1, 0, -1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, -1, 0, 1, -1, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, -1, 0, 1, -1, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, -1, -1, 0, -1, -1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, -1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1, -1, 0, -1, -1, 0, -1]), new Float32Array([-1, 1, 0, -1, 1, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]), new Float32Array([])];
-var geoLengthTable = geoTable.map(function (a) {
-	return a.length;
-});
+var geoTable = [new Float32Array([]), new Float32Array([1,0,0,0,0,1,0,1,0]), new Float32Array([0,0,0,1,1,0,1,0,1]), new Float32Array([1,1,0,0,0,1,0,1,0,1,0,1,0,0,1,1,1,0]), new Float32Array([0,0,0,0,1,1,1,1,0]), new Float32Array([1,0,0,0,1,1,1,1,0,0,0,1,0,1,1,1,0,0]), new Float32Array([1,1,0,1,0,1,0,0,0,1,1,0,0,0,0,0,1,1]), new Float32Array([1,1,0,0,1,1,1,1,0,1,1,0,1,0,1,0,1,1,1,0,1,0,0,1,0,1,1]), new Float32Array([1,0,0,0,1,0,1,1,1]), new Float32Array([1,0,0,0,0,1,0,1,0,1,0,0,0,1,0,1,1,1]), new Float32Array([1,0,1,0,1,0,1,1,1,0,0,0,0,1,0,1,0,1]), new Float32Array([0,1,0,0,0,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,0,1,0,0,1]), new Float32Array([0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,0,0,0]), new Float32Array([1,0,0,1,1,1,1,0,0,1,0,0,0,0,1,1,1,1,0,0,1,0,1,1,1,1,1]), new Float32Array([0,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1]), new Float32Array([1,0,1,0,0,1,1,1,1,1,1,1,0,0,1,0,1,1]), new Float32Array([1,0,1,0,1,1,0,0,0]), new Float32Array([1,0,1,0,1,0,1,0,0,0,1,1,0,1,0,1,0,1]), new Float32Array([0,0,0,1,1,0,1,0,1,0,0,0,1,0,1,0,1,1]), new Float32Array([1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,1,1,0,0,1,1,0,1,0,1,1,0]), new Float32Array([0,0,0,1,0,1,0,1,1,0,0,0,0,1,1,1,1,0]), new Float32Array([0,1,1,1,0,1,0,1,1,0,1,1,1,1,0,1,0,1,1,1,0,1,0,0,1,0,1]), new Float32Array([1,0,1,0,0,0,1,1,0,0,0,0,1,0,1,0,1,1,1,1,0,0,0,0,0,1,1]), new Float32Array([1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,1,0,1,1,0]), new Float32Array([1,0,0,0,1,0,1,1,1,0,0,0,1,0,1,0,1,1]), new Float32Array([0,1,0,1,0,1,0,1,1,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0,1,1,1]), new Float32Array([1,0,1,0,1,0,1,1,1,1,0,1,0,0,0,0,1,0,0,0,0,1,0,1,0,1,1]), new Float32Array([0,1,0,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1,0,0,1,1,1,0,1,1,0,1]), new Float32Array([0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,0,1,1,0,0,0,1,0,1]), new Float32Array([1,0,0,0,1,1,1,1,1,1,0,0,1,0,1,0,1,1,1,0,0,1,0,0,1,0,1,0,1,1,0,1,1,1,0,1]), new Float32Array([1,0,1,0,1,1,0,0,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,0,0,0,0,0]), new Float32Array([1,0,1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1,0,1,1,1,1,1]), new Float32Array([1,0,0,1,1,1,0,0,1]), new Float32Array([1,0,0,1,1,1,0,0,1,1,0,0,0,0,1,0,1,0]), new Float32Array([0,0,0,1,1,1,0,0,1,1,1,0,1,1,1,0,0,0]), new Float32Array([0,0,1,1,1,1,0,0,1,0,0,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,1]), new Float32Array([1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,1,1]), new Float32Array([1,0,0,0,1,1,1,1,0,1,0,0,0,0,1,0,1,1,0,0,1,1,0,0,1,1,1]), new Float32Array([0,0,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,1,1,1,0,0,0,0,0,1,1]), new Float32Array([1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,0,0,1,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1,1,1,1]), new Float32Array([1,0,0,0,1,0,1,1,1,1,0,0,1,1,1,0,0,1]), new Float32Array([0,1,0,1,0,0,0,0,1,1,0,0,0,1,0,1,1,1,0,0,1,1,0,0,1,1,1]), new Float32Array([1,1,1,0,1,0,1,1,1,1,1,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0]), new Float32Array([0,1,0,1,1,1,1,1,1,0,1,0,0,1,0,1,1,1,0,1,0,1,1,1,0,0,1,0,1,0,0,0,1,0,0,1]), new Float32Array([1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,1,0,0,1,1,1,0,0,1]), new Float32Array([0,0,1,1,0,0,1,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,0,1,1,1,1,1]), new Float32Array([1,1,1,0,0,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,0,0,0,0,0,0]), new Float32Array([1,1,1,0,0,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,0,1,1]), new Float32Array([1,0,0,0,1,1,0,0,0,1,1,1,0,1,1,1,0,0]), new Float32Array([1,0,0,0,1,0,1,0,0,1,0,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1,0]), new Float32Array([0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1,1,1,1,0,1,1,1,0,1,1]), new Float32Array([1,1,0,1,1,1,0,1,0,0,1,0,1,1,1,0,1,1]), new Float32Array([0,1,1,1,0,0,1,1,1,0,1,1,0,0,0,1,0,0,0,0,0,0,1,1,1,1,0]), new Float32Array([1,0,0,1,1,1,0,1,1,1,0,0,0,1,1,1,1,0,1,0,0,1,1,0,1,0,0,1,1,0,0,1,1,0,1,1]), new Float32Array([1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,1,1,0,0,1,1,0,0,0,1,1,0,1,1,1,0,1,1]), new Float32Array([0,1,1,1,1,0,1,1,0,0,1,1,1,1,0,0,1,1,0,1,1,1,1,0,1,1,1]), new Float32Array([1,0,0,0,1,1,0,0,0,1,0,0,1,1,1,0,1,1,1,1,1,1,0,0,0,1,0]), new Float32Array([1,1,1,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,1,1,0,1,1,0,1,0]), new Float32Array([0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,0,1,0]), new Float32Array([0,1,0,1,1,1,1,1,1,0,1,0,1,1,1,0,1,0,0,1,0,1,1,1,0,1,1]), new Float32Array([1,0,0,1,1,1,0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1]), new Float32Array([1,1,1,0,1,1,1,0,0,1,1,1,1,0,0,1,0,0,0,1,1,0,1,1,1,0,0,1,0,0,1,0,0,1,1,1,0,1,1,1,1,1,1,0,0]), new Float32Array([0,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,0,0,0]), new Float32Array([0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1]), new Float32Array([0,0,1,1,1,1,0,1,0]), new Float32Array([0,1,0,1,0,0,0,0,1,0,1,0,0,0,1,1,1,1]), new Float32Array([0,0,0,1,1,0,1,0,1,0,1,0,0,0,1,1,1,1]), new Float32Array([0,0,1,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,1,0,0,0,1,1,1,1]), new Float32Array([0,0,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,1]), new Float32Array([0,0,1,1,0,0,0,0,1,0,0,1,1,1,1,1,0,0,1,1,1,1,1,0,1,0,0]), new Float32Array([1,1,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,0,0,0,1,1,0,1,0,1]), new Float32Array([1,1,0,1,1,1,1,1,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,1,0,0,1,0,0,1,1,1,1]), new Float32Array([1,1,1,1,0,0,0,1,0,1,1,1,0,1,0,0,0,1]), new Float32Array([1,0,0,0,1,0,1,1,1,0,1,0,1,0,0,0,0,1,1,1,1,0,1,0,0,0,1]), new Float32Array([0,1,0,1,0,1,0,0,0,0,1,0,1,1,1,1,0,1,1,1,1,0,1,0,0,0,1]), new Float32Array([1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,0,1,0,1,1,1,0,0,1,0,1,0,1,1,1,1,0,1,0,0,1]), new Float32Array([1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,1]), new Float32Array([1,1,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,1,1,1,1,1,1,1,0,0,1]), new Float32Array([0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,1,1,1,1,0,1]), new Float32Array([1,1,1,0,0,0,1,0,1,0,1,0,0,0,0,1,1,1]), new Float32Array([0,1,0,1,1,1,0,1,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1,1,1,1]), new Float32Array([0,0,0,1,1,1,0,1,0,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,1,1,0]), new Float32Array([1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,0,0,1,0,0,1,0,1,1,1]), new Float32Array([0,0,0,1,1,0,0,0,0,0,0,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0]), new Float32Array([1,0,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0]), new Float32Array([1,1,0,1,0,1,0,0,0,1,1,0,0,0,0,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0]), new Float32Array([1,1,0,1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1,0,1,1,1,1]), new Float32Array([1,1,1,0,0,0,1,0,1,1,1,1,0,1,0,0,0,0,0,1,0,1,1,1,1,0,0]), new Float32Array([1,0,0,0,1,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,0,1,1,1,0,1,0,1,0,0,1,0,1,1,1,1]), new Float32Array([1,0,1,0,1,0,0,0,0,1,0,1,1,1,1,0,1,0,0,0,0,0,1,0,1,0,1,0,1,0,1,1,1,1,0,1]), new Float32Array([1,1,1,1,0,1,0,1,0,1,1,1,0,1,0,0,1,0,1,0,1,1,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,0,1,1,1,1,0,1,0]), new Float32Array([0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,0,0]), new Float32Array([1,1,1,1,0,0,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,0,1]), new Float32Array([1,0,1,1,1,1,0,0,0,1,0,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0]), new Float32Array([1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1]), new Float32Array([0,0,1,1,0,0,1,1,1,0,0,1,1,1,1,0,1,0]), new Float32Array([1,0,0,0,0,1,0,1,0,0,0,1,1,0,0,1,1,1,0,1,0,0,0,1,1,1,1]), new Float32Array([1,1,1,0,0,0,1,1,0,1,1,1,0,0,1,0,0,0,0,0,1,1,1,1,0,1,0]), new Float32Array([0,1,0,0,0,1,1,1,1,0,0,1,0,1,0,0,0,1,0,1,0,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1]), new Float32Array([0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,1,1,1,0,0,1,1,0,0]), new Float32Array([1,0,0,1,1,1,0,0,1,1,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,0,1,1,1,0,0,1,0,0,1]), new Float32Array([0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,1,1,1,0,0,0,1,1,1,0,0,1,0,0,0]), new Float32Array([1,1,1,1,1,0,0,0,1,1,1,1,0,0,1,0,0,1,1,1,0,1,1,0,0,0,1,0,0,1,0,0,1,1,1,1,1,1,0,1,1,1,0,0,1]), new Float32Array([1,0,0,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,1,1,1,1,0,1,0]), new Float32Array([1,1,1,0,1,0,0,0,1,1,0,0,0,1,0,1,1,1,1,0,0,0,0,1,0,1,0,0,0,1,1,0,0,1,1,1]), new Float32Array([0,0,1,1,1,1,0,1,0,1,1,1,0,0,1,1,1,1,0,0,1,0,1,0,1,1,1,0,0,1,0,0,0,0,1,0]), new Float32Array([0,1,0,0,0,1,0,0,1,0,1,0,1,1,1,0,0,1,0,1,0,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,0,1,0,0,0,1,1,1,1]), new Float32Array([1,0,0,1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1]), new Float32Array([1,0,0,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,1,0,0,0,0,1,0,0,1,0,0,1,1,0,0,1,0,0,1,1,1,0,0,1]), new Float32Array([0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,1,0,0,0,0,0,1,1,1,1]), new Float32Array([0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,1,1,1]), new Float32Array([1,1,1,1,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0]), new Float32Array([0,1,0,1,1,1,0,1,0,1,0,0,1,1,1,0,1,0,1,0,0,1,1,1,1,1,1,1,0,0,1,0,0,1,1,1]), new Float32Array([0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0]), new Float32Array([1,1,1,0,1,0,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1,1,0]), new Float32Array([1,1,1,0,0,0,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0]), new Float32Array([1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,1,1,1,1,0]), new Float32Array([1,1,0,1,1,1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,1,1,0,0,0,0]), new Float32Array([1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1]), new Float32Array([1,0,0,0,1,0,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,1,1,1,1,1]), new Float32Array([1,0,0,0,1,0,0,1,0,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,0,1,0,1,1,1]), new Float32Array([0,1,0,0,0,0,1,1,1,0,1,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,1,0,1,1,1]), new Float32Array([1,1,1,0,1,0,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0]), new Float32Array([1,0,0,0,0,0,1,1,1,1,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,0,0,1,1,1]), new Float32Array([1,1,1,1,0,0,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1]), new Float32Array([1,1,1,1,1,1,1,1,1]), new Float32Array([1,1,0,0,1,1,1,0,1]), new Float32Array([1,0,0,0,0,1,0,1,0,1,0,1,1,1,0,0,1,1]), new Float32Array([1,0,1,0,0,0,1,1,0,1,0,1,1,1,0,0,1,1]), new Float32Array([1,1,0,0,0,1,0,1,0,1,1,0,1,0,1,0,0,1,1,0,1,1,1,0,0,1,1]), new Float32Array([1,1,0,0,0,0,0,1,1,1,1,0,0,1,1,1,0,1]), new Float32Array([0,1,1,1,0,0,0,0,1,0,1,1,1,1,0,1,0,0,1,1,0,0,1,1,1,0,1]), new Float32Array([0,0,0,1,1,0,1,0,1,1,1,0,0,0,0,0,1,1,1,0,1,1,1,0,0,1,1]), new Float32Array([1,0,1,1,1,0,0,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,0,1,0,1,1]), new Float32Array([1,0,0,0,1,1,1,0,1,0,1,0,0,1,1,1,0,0]), new Float32Array([1,0,0,0,1,1,1,0,1,1,0,0,0,1,0,0,1,1,0,1,0,1,0,0,0,0,1]), new Float32Array([1,0,1,0,1,1,1,0,1,1,0,1,0,0,0,0,1,1,0,0,0,0,1,0,0,1,1]), new Float32Array([1,0,1,1,0,1,0,0,1,1,0,1,0,0,1,0,1,0,1,0,1,0,1,0,0,1,1,0,1,0,0,1,0,0,0,1]), new Float32Array([0,1,1,0,0,0,0,1,1,0,1,1,1,0,1,0,0,0,1,0,1,1,0,0,0,0,0]), new Float32Array([1,0,0,0,0,1,0,1,1,1,0,0,0,1,1,1,0,1,1,0,0,1,0,1,1,0,0,1,0,1,0,1,1,0,1,1]), new Float32Array([0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,0,1]), new Float32Array([0,1,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,1,0,1,0,0,1]), new Float32Array([1,0,1,1,1,0,0,1,1,1,0,1,0,1,1,0,0,0]), new Float32Array([1,0,1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,0,0,1,1,1,0,1,1,1,0]), new Float32Array([1,1,0,1,0,1,0,0,0,1,0,1,1,1,0,0,1,1,0,0,0,1,0,1,0,1,1]), new Float32Array([1,1,0,0,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,1,0,0,1,1,0,1,0,0,1,1,1,0,1,1,0,1]), new Float32Array([0,0,0,0,1,1,1,1,0,0,1,1,0,0,0,1,0,1,1,1,0,0,1,1,1,0,1]), new Float32Array([1,0,1,1,1,0,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,1,0,1,0,0,1,1,0,0,1,1,0,1,1]), new Float32Array([0,0,0,1,1,0,1,0,1,1,0,1,0,1,1,0,0,0,1,1,0,0,0,0,0,1,1,1,0,1,1,1,0,0,1,1]), new Float32Array([1,0,1,1,1,0,1,1,0,1,0,1,0,1,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,1,0,0,1,1]), new Float32Array([0,1,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,0,1,0,1,0,1,1,0,0,0]), new Float32Array([1,0,0,0,1,0,1,0,1,1,0,1,0,1,0,0,1,1,0,1,0,1,0,0,1,0,1,0,1,0,1,0,1,0,1,1]), new Float32Array([0,0,0,1,0,1,0,1,1,1,0,1,0,0,0,1,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,1,0,0,1,1]), new Float32Array([0,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,1,0,1,0,1,1,0,1,0,0,1,1,1,0,1]), new Float32Array([0,0,0,1,0,1,0,1,1,0,0,0,0,1,1,1,0,1,0,0,0,1,0,1,1,0,0,1,0,1,0,1,1,0,1,1]), new Float32Array([1,0,1,1,0,0,0,1,1,1,0,1,0,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,0,1,1,1,0,1,1,0,0,1,0,1,0,1,1]), new Float32Array([0,0,0,1,0,1,1,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,0,0,0,0,0,0,1,0,1,0,1,1]), new Float32Array([0,1,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,1,0,1]), new Float32Array([1,1,0,0,0,1,1,0,0,0,1,1,0,0,1,1,1,0]), new Float32Array([0,0,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,1,0,0,0,0,1,0,1,0]), new Float32Array([1,1,0,0,0,0,1,1,0,1,1,0,0,1,1,0,0,0,0,1,1,0,0,1,0,0,0]), new Float32Array([0,0,1,0,1,0,1,1,0,0,0,1,1,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,1,1,1,1,0,1,1,0]), new Float32Array([1,1,0,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,0,1,1,1,1,0,0,0,0]), new Float32Array([1,0,0,0,0,1,1,1,0,1,1,0,0,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,0,1,1,1,0,0,1,1]), new Float32Array([0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1,1,0,0,1,0,1,1,1,1,0,1,1,0]), new Float32Array([0,1,1,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,1,1,0,0,1,1,0,0,1,0,1,1,1,1,0]), new Float32Array([1,0,0,0,0,1,1,0,0,1,0,0,0,1,0,0,0,1,0,1,0,0,1,1,0,0,1]), new Float32Array([0,1,0,1,0,0,0,0,1,1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,1,1,0,0,1]), new Float32Array([0,0,0,0,1,0,0,0,1,0,0,1,0,1,0,0,1,1]), new Float32Array([0,0,1,0,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,1,0,0,1,1]), new Float32Array([1,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,1,1,1,0,0,1,0,0,0,0,0,0,1,1,0,1,1,0,0,0]), new Float32Array([0,0,1,0,1,1,1,0,0,0,0,1,1,0,0,1,0,0,0,1,1,0,1,1,1,0,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,1,1,0,0]), new Float32Array([0,0,0,0,1,1,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1]), new Float32Array([0,1,1,0,0,1,0,0,1,0,1,1,0,1,1,0,0,1]), new Float32Array([0,1,1,1,1,0,0,1,1,0,1,1,0,0,0,1,1,0,0,0,0,1,0,0,1,1,0]), new Float32Array([1,0,0,0,1,1,0,1,0,1,0,0,1,1,0,0,1,1,1,0,0,1,0,0,1,1,0,0,1,1,0,1,1,1,1,0]), new Float32Array([1,1,0,0,1,1,0,1,1,1,1,0,1,1,0,0,1,1,1,1,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0]), new Float32Array([1,1,0,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,1,1,0,0,1,1,0,1,0]), new Float32Array([1,1,0,0,0,0,0,1,1,1,1,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1]), new Float32Array([1,1,0,1,0,0,0,1,1,1,1,0,0,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,0,1,1,1,1,0,1,0,0,1,1,0,0,1,1]), new Float32Array([1,1,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,1,1,1,1,0,1,1,0,0,0,0,0,1,1]), new Float32Array([0,1,1,1,1,0,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,0,1,1,1,1,0]), new Float32Array([1,0,0,0,1,0,0,1,1,1,0,0,0,1,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1]), new Float32Array([0,1,0,0,1,1,1,0,0,0,1,0,1,0,0,1,0,0,0,1,1,0,1,1,1,0,0,1,0,0,1,0,0,0,1,0,0,1,1,0,1,0,1,0,0]), new Float32Array([0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,0,0,0,1,0]), new Float32Array([0,1,1,0,1,0,0,1,0,0,1,1,0,1,1,0,1,0]), new Float32Array([0,0,0,1,0,0,0,1,1,0,0,0,0,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,1,0,1,1,0,0,0,1,0,0,0,0,0,0,1,1]), new Float32Array([1,0,0,1,0,0,1,0,0,0,1,1,0,1,1,0,1,1]), new Float32Array([0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,0,0]), new Float32Array([0,1,1,0,1,1,0,1,1]), new Float32Array([0,1,0,1,0,1,1,1,0,0,0,1,1,0,1,0,1,0]), new Float32Array([0,1,0,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,0,0,1,0,1,0,1,0,0]), new Float32Array([1,0,1,0,1,0,0,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,0,1,0,0,0]), new Float32Array([1,1,0,0,0,1,1,0,1,1,1,0,0,1,0,0,0,1,1,0,1,0,0,1,1,1,0,0,0,1,0,1,0,1,1,0]), new Float32Array([1,1,0,1,0,1,1,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,1]), new Float32Array([0,0,1,1,1,0,1,0,0,0,0,1,1,0,1,1,1,0,0,0,1,0,0,1,1,0,1,1,1,0,1,1,0,1,0,1]), new Float32Array([1,0,1,0,0,0,1,1,0,1,0,1,1,1,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1,1,0,1,1,0]), new Float32Array([1,0,1,0,0,1,1,1,0,1,0,1,1,1,0,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,1,1,0,1,0,1,0,0,1,1,0,1,1,1,0]), new Float32Array([0,1,0,1,0,0,0,1,0,0,1,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,0]), new Float32Array([1,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,1,1,0,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0]), new Float32Array([1,0,1,0,0,1,1,0,1,1,0,1,0,1,0,0,0,1,1,0,1,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1]), new Float32Array([0,0,1,1,0,1,0,1,0,0,0,1,0,1,0,0,1,0,1,0,1,1,0,1,0,1,0,0,1,0,0,1,0,0,0,1,1,0,1,0,0,1,0,1,0]), new Float32Array([1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,1]), new Float32Array([1,0,0,0,0,1,0,0,1,1,0,0,0,0,1,1,0,0,1,0,0,0,0,1,1,0,1]), new Float32Array([1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,0,0,1]), new Float32Array([1,0,1,0,0,1,0,0,1,1,0,1,1,0,1,0,0,1]), new Float32Array([1,0,1,0,0,0,1,0,1,1,0,1,1,1,0,0,0,0,1,1,0,0,1,0,0,0,0]), new Float32Array([1,0,1,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,0,1,1,1,0,0,1,0,0,1,0,0,1,0,1,0,0]), new Float32Array([0,0,0,1,1,0,1,0,1,0,0,0,1,0,1,1,1,0,0,0,0,1,1,0,0,1,0,1,1,0,1,0,1,1,0,1]), new Float32Array([1,1,0,0,1,0,1,0,1,1,1,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,0,1]), new Float32Array([1,1,0,1,0,1,1,1,0,0,0,0,1,0,1,1,1,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,0,1,0,1]), new Float32Array([1,0,1,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,1,0,1,0,0]), new Float32Array([0,0,0,1,1,0,1,1,0,0,0,0,1,0,1,1,1,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,0,0,0,0,0,0,1,1,0,1,0,1]), new Float32Array([1,0,1,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,1,0]), new Float32Array([0,1,0,1,0,1,1,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0,1,0,0,0,0,1,0,1,1,0,1,0,0,0]), new Float32Array([1,0,0,1,0,1,0,1,0,1,0,0,0,1,0,0,1,0,1,0,1,1,0,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,1,0,0,0,1,0]), new Float32Array([0,0,0,0,1,0,1,0,1,0,0,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,0,0,1,0,1]), new Float32Array([1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,1,0,0]), new Float32Array([1,0,0,1,0,1,1,0,1,1,0,0,1,0,0,1,0,1]), new Float32Array([0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1]), new Float32Array([1,0,1,1,0,1,1,0,1]), new Float32Array([0,0,1,0,1,0,0,0,1,0,0,1,1,0,0,0,1,0,1,0,0,1,1,0,0,1,0]), new Float32Array([1,0,0,0,0,1,0,1,0,0,0,1,1,0,0,0,0,1,1,0,0,0,1,0,0,0,1,1,0,0,1,1,0,0,1,0]), new Float32Array([1,1,0,1,1,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,0,1,0,0,0,0,0,1,0,0,1,0,1,0]), new Float32Array([0,1,0,1,1,0,0,0,1,0,1,0,0,0,1,0,0,1,1,1,0,1,1,0,0,0,1,0,0,1,0,0,1,0,1,0,1,1,0,0,1,0,0,0,1]), new Float32Array([1,1,0,1,0,0,1,1,0,1,1,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,1,0,0]), new Float32Array([1,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,0,1,1,1,0,1,1,0,0,0,1,0,0,1,0,0,1,1,0,0,1,1,0,1,0,0,0,0,1]), new Float32Array([0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,1,1,0,0,0,1,0,0,1,1,1,0,1,1,0,1,1,0,0,0,0,0,0,1,0,0,0,1,1,0]), new Float32Array([1,1,0,1,1,0,1,1,0,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,1,0,1,0,0,0,1,1,0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0]), new Float32Array([1,0,0,0,0,1,0,0,1,1,0,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,1,0,1,0]), new Float32Array([0,1,0,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0]), new Float32Array([0,1,0,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,1,0,0,0,1]), new Float32Array([0,0,1,1,0,0,1,0,0,0,0,1,1,0,0,0,0,1,0,0,1,1,0,0,0,0,0]), new Float32Array([0,0,1,1,0,0,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,0,0,1,1,0,0]), new Float32Array([0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0]), new Float32Array([0,0,1,0,0,1,0,0,1]), new Float32Array([1,0,0,1,1,0,0,0,0,1,1,0,0,1,0,0,0,0]), new Float32Array([0,1,0,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,1,0,0,1,1,0]), new Float32Array([0,0,0,1,1,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1,0]), new Float32Array([0,1,0,1,1,0,1,1,0,0,1,0,0,1,0,1,1,0]), new Float32Array([1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,0,0,0,1,0,0]), new Float32Array([1,0,0,1,1,0,1,1,0,1,0,0,1,0,0,1,1,0]), new Float32Array([1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,1,1,0,0,0,0]), new Float32Array([1,1,0,1,1,0,1,1,0]), new Float32Array([1,0,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0]), new Float32Array([0,1,0,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,1,0,0]), new Float32Array([0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0]), new Float32Array([0,1,0,0,1,0,0,1,0]), new Float32Array([1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0]), new Float32Array([1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([])];
+var normalTable = [new Float32Array([]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([1,1,-1,1,1,-1,1,1,-1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,-1,1,1,-1,1,1,-1]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([-1,-1,1,-1,-1,1,-1,-1,1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,1,-1,-1,1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,1,1,-1,1,1,-1,1,1,-1]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,-1,1,-1,-1,1,-1,-1,1,1,1,-1,1,1,-1,1,1,-1,0,0,-1,0,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([1,-1,1,1,-1,1,1,-1,1]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1,0,-1,0,-1,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,-1,1,1,-1,1,1,-1,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,0,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,-1,0,-1,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1,0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,1,1,-1,1,1,-1,1,1,-1]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,0,-1,1,0,-1,1,0,-1,0,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,1,-1,-1,1,-1,-1,1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1,0,0,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,1,1,-1,1,1,-1,1,1,0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1,0,1,0,-1,1,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,1,-1,-1,1,-1,-1,1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,-1,0,1,0,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,-1,1,1,-1,0,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,1,1,-1,1,1,-1,1,1,-1]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,-1,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1,-1,0,1,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,-1,1,0,-1,1,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,1,1,-1,1,1,-1,1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,1,1,-1,1,1,-1,1,1,0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,-1,1,-1,-1,1,-1,-1,1,-1,-1,0,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,-1,1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1,0]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,1,1,-1,1,1,-1,1,1,-1,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([-1,1,1,-1,1,1,-1,1,1,1,1,-1,1,1,-1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([-1,1,1,-1,1,1,-1,1,1,0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1]), new Float32Array([1,-1,1,1,-1,1,1,-1,1,0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,-1,0,1,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,-1,1,1,-1,1,1,-1,-1,-1,1,-1,-1,1,-1,-1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1]), new Float32Array([-1,0,1,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,-1,1,0,-1,1,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,1,1,1,1,1,1,1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,1,-1,-1,1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0]), new Float32Array([1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,0,1,0,0,1,0,0,1,0]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1]), new Float32Array([1,1,1,1,1,1,1,1,1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,1,1,1,1,1,1,1,1,1]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,1,1,1,1,1,1,1,1,1,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([1,1,1,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,0,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,1,-1,-1,1,1,1,1,1,1,1,1,1,1]), new Float32Array([1,1,1,1,1,1,1,1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,-1,1,-1,-1,1,-1,-1,1,-1,1,-1,-1,1,-1,-1,1,-1,1,1,1,1,1,1,1,1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1]), new Float32Array([1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0]), new Float32Array([-1,-1,1,-1,-1,1,-1,-1,1,0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,1,0,0,1,0,0,1,0,0]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,0]), new Float32Array([-1,-1,1,-1,-1,1,-1,-1,1,1,1,-1,1,1,-1,1,1,-1,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,-1,1,1,-1,1,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,1,-1,-1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1]), new Float32Array([1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,1,0,0,1,0,0,1,0,0]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,1,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1,1,-1,1,1,-1,1,1,-1,1,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,-1,0,-1,-1,0,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,1,0,0]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,1,0,0]), new Float32Array([1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0]), new Float32Array([1,0,1,1,0,1,1,0,1,0,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,0,0,1,0,0,1,0,0,1]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,1,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0]), new Float32Array([-1,1,-1,-1,1,-1,-1,1,-1,1,-1,1,1,-1,1,1,-1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,-1,1,1,-1,1,1,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,-1,-1,1,-1,-1,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,0,1,1,0,1,1,0,0,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1]), new Float32Array([0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,-1,-1,1,-1,-1,1,-1,-1]), new Float32Array([0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1,0,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1,0,1,0,0,1,0,0,1,0]), new Float32Array([-1,0,-1,-1,0,-1,-1,0,-1,0,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,-1,1,1,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,1,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,1,0,-1,1,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1]), new Float32Array([0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1,0,0,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0]), new Float32Array([1,-1,-1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,-1,1,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0]), new Float32Array([0,1,1,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,-1,-1,0,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,0,0,-1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,-1,1,1,-1,1,1,-1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,-1,1,-1,-1,1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,1,0,1,1,0,1,1,0,-1,0,1,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,0]), new Float32Array([1,0,-1,1,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,-1,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,1,0,0,1,0,0,1]), new Float32Array([-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1,1,-1,0,1,-1,0,1,-1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,-1,-1,0,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,1,1]), new Float32Array([0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,0,1,-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0]), new Float32Array([1,0,1,1,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,-1,0,-1,-1,0,-1]), new Float32Array([-1,1,0,-1,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-1,0,1,-1,0,1,-1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([0,0,0,0,0,0,0,0,0]), new Float32Array([])];
+var geoLengthTable = geoTable.map(function(a) { return a.length });
 
-var fillVertexArrays = function fillVertexArrays(geoIndices, vertices, normals, dims, bounds) {
+var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 	var idx, verts, norms;
 	var x, y, z;
-
-	var _dims = _slicedToArray(dims, 3),
-	    width = _dims[0],
-	    height = _dims[1],
-	    depth = _dims[2];
-
-	var _bounds$ = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$[0],
-	    sy = _bounds$[1],
-	    sz = _bounds$[2];
-
-	var _bounds$2 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$2[0],
-	    ey = _bounds$2[1],
-	    ez = _bounds$2[2];
-
+	var width = dims[0], height = dims[1], depth = dims[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 	var zStride = width * height;
 	var yStride = width;
-	ex--;ey--;ez--;
+	ex--; ey--; ez--;
 
-	var i = 0,
-	    j = 0,
-	    k = 0,
-	    w = 0,
-	    u = 0,
-	    vl = 0;
+	var i=0, j=0, k=0, w=0, u=0, vl=0;
 	// March over the volume
-	for (z = sz; z < ez; z++) {
-		for (y = sy; y < ey; y++) {
-			for (x = sx; x < ex; x++, j++) {
+	for (z=sz; z<ez; z++) {
+		for (y=sy; y<ey; y++) {
+			for (x=sx; x<ex; x++, j++) {
 
 				idx = geoIndices[j];
 				verts = geoTable[idx];
@@ -2784,7 +2798,7 @@ var fillVertexArrays = function fillVertexArrays(geoIndices, vertices, normals, 
 
 				vl = verts.length;
 
-				for (i = 0, u = 0; i < vl;) {
+				for (i=0,u=0; i<vl;) {
 
 					normals[w++] = norms[u++];
 					normals[w++] = norms[u++];
@@ -2809,34 +2823,23 @@ var fillVertexArrays = function fillVertexArrays(geoIndices, vertices, normals, 
 					vertices[k++] = verts[i++] + x;
 					vertices[k++] = verts[i++] + y;
 					vertices[k++] = verts[i++] + z;
+
 				}
 			}
 		}
 	}
-};
+}
 
-var buildGeoIndices = function buildGeoIndices(geoIndices, data, dims, bounds) {
+
+var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 	var x, y, z;
-
-	var _dims2 = _slicedToArray(dims, 3),
-	    width = _dims2[0],
-	    height = _dims2[1],
-	    depth = _dims2[2];
-
-	var _bounds$3 = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$3[0],
-	    sy = _bounds$3[1],
-	    sz = _bounds$3[2];
-
-	var _bounds$4 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$4[0],
-	    ey = _bounds$4[1],
-	    ez = _bounds$4[2];
-
+	var width = dims[0], height = dims[1], depth = dims[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 	var zStride = width * height;
 	var yStride = width;
-	ex--;ey--;ez--;
-	var ex4 = ex - 4;
+	ex--; ey--; ez--;
+	var ex4 = ex-4;
 
 	var vertexCount = 0;
 	var n = 0;
@@ -2846,9 +2849,9 @@ var buildGeoIndices = function buildGeoIndices(geoIndices, data, dims, bounds) {
 	var c0, c1, c2, c3;
 
 	// March over the volume
-	for (z = sz; z < ez; z++) {
+	for (z=sz; z<ez; z++) {
 		zOff = z * zStride;
-		for (y = sy; y < ey; y++) {
+		for (y=sy; y<ey; y++) {
 			yOff00 = zOff + y * yStride + sx;
 			yOff01 = yOff00 + yStride;
 			yOff10 = yOff00 + zStride;
@@ -2861,190 +2864,179 @@ var buildGeoIndices = function buildGeoIndices(geoIndices, data, dims, bounds) {
 			s5 = data[yOff10++];
 			s7 = data[yOff11++];
 
-			for (x = sx; x < ex4; x += 4, n += 4) {
+			for (x=sx; x<ex4; x+=4, n+=4) {
 				c0 = 0, c1 = 0, c2 = 0, c3 = 0;
 
-				c0 += s1 * 1;
-				c0 += s3 * 4;
-				c0 += s5 * 16;
-				c0 += s7 * 64;
+				c0 += s1*1;
+				c0 += s3*4;
+				c0 += s5*16;
+				c0 += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c0 += s1 * 2;
-				c0 += s3 * 8;
-				c0 += s5 * 32;
-				c0 += s7 * 128;
+				c0 += s1*2;
+				c0 += s3*8;
+				c0 += s5*32;
+				c0 += s7*128;
 
-				c1 += s1 * 1;
-				c1 += s3 * 4;
-				c1 += s5 * 16;
-				c1 += s7 * 64;
+				c1 += s1*1;
+				c1 += s3*4;
+				c1 += s5*16;
+				c1 += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c1 += s1 * 2;
-				c1 += s3 * 8;
-				c1 += s5 * 32;
-				c1 += s7 * 128;
+				c1 += s1*2;
+				c1 += s3*8;
+				c1 += s5*32;
+				c1 += s7*128;
 
-				c2 += s1 * 1;
-				c2 += s3 * 4;
-				c2 += s5 * 16;
-				c2 += s7 * 64;
+				c2 += s1*1;
+				c2 += s3*4;
+				c2 += s5*16;
+				c2 += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c2 += s1 * 2;
-				c2 += s3 * 8;
-				c2 += s5 * 32;
-				c2 += s7 * 128;
+				c2 += s1*2;
+				c2 += s3*8;
+				c2 += s5*32;
+				c2 += s7*128;
 
-				c3 += s1 * 1;
-				c3 += s3 * 4;
-				c3 += s5 * 16;
-				c3 += s7 * 64;
+				c3 += s1*1;
+				c3 += s3*4;
+				c3 += s5*16;
+				c3 += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c3 += s1 * 2;
-				c3 += s3 * 8;
-				c3 += s5 * 32;
-				c3 += s7 * 128;
+				c3 += s1*2;
+				c3 += s3*8;
+				c3 += s5*32;
+				c3 += s7*128;
 
-				geoIndices[n + 0] = c0;
-				geoIndices[n + 1] = c1;
-				geoIndices[n + 2] = c2;
-				geoIndices[n + 3] = c3;
+				geoIndices[n+0] = c0;
+				geoIndices[n+1] = c1;
+				geoIndices[n+2] = c2;
+				geoIndices[n+3] = c3;
 
 				vertexCount += geoLengthTable[c0];
 				vertexCount += geoLengthTable[c1];
 				vertexCount += geoLengthTable[c2];
 				vertexCount += geoLengthTable[c3];
 			}
-			for (; x < ex; x++, n++) {
+			for (; x<ex; x++, n++) {
 				c0 = 0, c1 = 0, c2 = 0, c3 = 0;
 
-				c0 += s1 * 1;
-				c0 += s3 * 4;
-				c0 += s5 * 16;
-				c0 += s7 * 64;
+				c0 += s1*1;
+				c0 += s3*4;
+				c0 += s5*16;
+				c0 += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c0 += s1 * 2;
-				c0 += s3 * 8;
-				c0 += s5 * 32;
-				c0 += s7 * 128;
+				c0 += s1*2;
+				c0 += s3*8;
+				c0 += s5*32;
+				c0 += s7*128;
 
-				geoIndices[n + 0] = c0;
+				geoIndices[n+0] = c0;
 				vertexCount += geoLengthTable[c0];
 			}
 		}
 	}
 
 	return vertexCount;
-};
+}
 
 function munchData(data, isoMin, isoMax) {
 	if (data2.length < data.length) {
 		data2 = new Uint8Array(data.length);
 	}
-	var i = 0,
-	    s = 0,
-	    dl8 = data.length - 8;
+	var i = 0, s = 0, dl8 = data.length - 8;
 	for (i = 0; i < dl8; i += 8) {
-		data2[i + 0] = data[i + 0] >= isoMin && data[i + 0] <= isoMax ? 1 : 0;
-		data2[i + 1] = data[i + 1] >= isoMin && data[i + 1] <= isoMax ? 1 : 0;
-		data2[i + 2] = data[i + 2] >= isoMin && data[i + 2] <= isoMax ? 1 : 0;
-		data2[i + 3] = data[i + 3] >= isoMin && data[i + 3] <= isoMax ? 1 : 0;
-		data2[i + 4] = data[i + 4] >= isoMin && data[i + 4] <= isoMax ? 1 : 0;
-		data2[i + 5] = data[i + 5] >= isoMin && data[i + 5] <= isoMax ? 1 : 0;
-		data2[i + 6] = data[i + 6] >= isoMin && data[i + 6] <= isoMax ? 1 : 0;
-		data2[i + 7] = data[i + 7] >= isoMin && data[i + 7] <= isoMax ? 1 : 0;
+		data2[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
+		data2[i+1] = (data[i+1] >= isoMin && data[i+1] <= isoMax) ? 1 : 0;
+		data2[i+2] = (data[i+2] >= isoMin && data[i+2] <= isoMax) ? 1 : 0;
+		data2[i+3] = (data[i+3] >= isoMin && data[i+3] <= isoMax) ? 1 : 0;
+		data2[i+4] = (data[i+4] >= isoMin && data[i+4] <= isoMax) ? 1 : 0;
+		data2[i+5] = (data[i+5] >= isoMin && data[i+5] <= isoMax) ? 1 : 0;
+		data2[i+6] = (data[i+6] >= isoMin && data[i+6] <= isoMax) ? 1 : 0;
+		data2[i+7] = (data[i+7] >= isoMin && data[i+7] <= isoMax) ? 1 : 0;
 	}
 	for (; i < data.length; i++) {
-		data2[i + 0] = data[i + 0] >= isoMin && data[i + 0] <= isoMax ? 1 : 0;
+		data2[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
 	}
 }
+
 
 var data2 = new Uint8Array(1000000);
 var geoIndices = new Uint8Array(1000000);
 
-exports.marchingCubes = function (dims, data, isoMin, isoMax, bounds) {
-	console.log('---');
-	console.time('marchingCubes');
+exports.marchingCubes = function(dims, data, isoMin, isoMax, bounds) {
+	if (LOG_TIMINGS) {
+		console.log('---');
+		console.time('marchingCubes');
+	}
 	if (!bounds) {
-		bounds = [[0, 0, 0], dims];
+		bounds = [[0,0,0], dims];
 	}
 
-	var _bounds$5 = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$5[0],
-	    sy = _bounds$5[1],
-	    sz = _bounds$5[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
-	var _bounds$6 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$6[0],
-	    ey = _bounds$6[1],
-	    ez = _bounds$6[2];
-
-	console.time("Munch data");
+	if (LOG_TIMINGS) {
+		console.time("Munch data");
+	}
 
 	munchData(data, isoMin, isoMax);
 
-	console.timeEnd("Munch data");
+	if (LOG_TIMINGS) {
+		console.timeEnd("Munch data");
 
-	console.time("Construct cube indices");
+		console.time("construct cube indices");
+	}
 
-	var geoIndicesLength = (ez - sz - 1) * (ey - sy - 1) * (ex - sx - 1);
+	var geoIndicesLength = (ez-sz-1)*(ey-sy-1)*(ex-sx-1);
 	if (geoIndices.length < geoIndicesLength) {
 		geoIndices = new Uint8Array(geoIndicesLength);
 	}
 	var vertexCount = buildGeoIndices(geoIndices, data2, dims, bounds);
 
-	console.timeEnd("Construct cube indices");
+	if (LOG_TIMINGS) {
+		console.timeEnd("construct cube indices");
 
-	console.time("Fill vertex arrays");
+		console.time("Fill vertex arrays");
+	}
 
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
 
-	console.timeEnd("Fill vertex arrays");
+	if (LOG_TIMINGS) {
+		console.timeEnd("Fill vertex arrays");
 
-	console.timeEnd('marchingCubes');
-	return { vertices: vertices, normals: normals };
+		console.timeEnd('marchingCubes');
+	}
+	return {vertices: vertices, normals: normals};
 };
 
-exports.marchingCubeCapX = function (dims, data, isoMin, isoMax, bounds, dir) {
-	var capX = dir === -1 ? bounds[0][0] : bounds[1][0] - 1;
-
-	var _bounds$7 = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$7[0],
-	    sy = _bounds$7[1],
-	    sz = _bounds$7[2];
-
-	var _bounds$8 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$8[0],
-	    ey = _bounds$8[1],
-	    ez = _bounds$8[2];
-
-	var _dims3 = _slicedToArray(dims, 3),
-	    width = _dims3[0],
-	    height = _dims3[1],
-	    depth = _dims3[2];
+exports.marchingCubeCapX = function(dims, data, isoMin, isoMax, bounds, dir) {
+	var capX = dir === -1 ? bounds[0][0] : bounds[1][0]-1;
+	var width = dims[0], height = dims[1], depth = dims[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
 	var bw = 2;
-	var bh = ey - sy;
-	var bd = ez - sz;
+	var bh = ey-sy;
+	var bd = ez-sz;
 
-	var off1 = 0,
-	    off2 = 1;
+	var off1 = 0, off2 = 1;
 	if (dir === -1) {
 		off1 = 1;
 		off2 = 0;
@@ -3052,18 +3044,18 @@ exports.marchingCubeCapX = function (dims, data, isoMin, isoMax, bounds, dir) {
 
 	var dataSlice = new Uint8Array(bw * bh * bd);
 	var zStride = width * height;
-	for (var z = sz, dz = 0; z < ez; z++, dz++) {
-		for (var y = sy, dy = 0; y < ey; y++, dy++) {
+	for (var z=sz,dz=0; z<ez; z++,dz++) {
+		for (var y=sy,dy=0; y<ey; y++,dy++) {
 			var off = z * zStride + y * width;
 			var v = data[off + capX];
-			dataSlice[off1 + dz * bw * bh + dy * bw] = 0;
-			dataSlice[off2 + dz * bw * bh + dy * bw] = v >= isoMin && v <= isoMax ? 1 : 0;
+			dataSlice[off1 + dz*bw*bh + dy*bw] = 0;
+			dataSlice[off2 + dz*bw*bh + dy*bw] = (v >= isoMin && v <= isoMax) ? 1 : 0;
 		}
 	}
 
 	var sliceDims = [bw, bh, bd];
-	var bounds = [[0, 0, 0], sliceDims];
-	var geoIndicesLength = (bd - 1) * (bh - 1) * (bw - 1);
+	var bounds = [[0,0,0], sliceDims];
+	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
 	if (geoIndices.length < geoIndicesLength) {
 		geoIndices = new Uint8Array(geoIndicesLength);
 	}
@@ -3072,42 +3064,29 @@ exports.marchingCubeCapX = function (dims, data, isoMin, isoMax, bounds, dir) {
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
-	for (var i = 0; i < vertices.length; i += 3) {
+	for (var i=0; i<vertices.length; i+=3) {
 		vertices[i] = capX;
-		vertices[i + 1] += sy;
-		vertices[i + 2] += sz;
+		vertices[i+1] += sy;
+		vertices[i+2] += sz;
 		normals[i] = dir;
-		normals[i + 1] = 0;
-		normals[i + 2] = 0;
+		normals[i+1] = 0;
+		normals[i+2] = 0;
 	}
 
-	return { vertices: vertices, normals: normals };
-};
+	return {vertices: vertices, normals: normals};
+}
 
-exports.marchingCubeCapY = function (dims, data, isoMin, isoMax, bounds, dir) {
-	var capY = dir === -1 ? bounds[0][1] : bounds[1][1] - 1;
+exports.marchingCubeCapY = function(dims, data, isoMin, isoMax, bounds, dir) {
+	var capY = dir === -1 ? bounds[0][1] : bounds[1][1]-1;
+	var width = dims[0], height = dims[1], depth = dims[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
-	var _bounds$9 = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$9[0],
-	    sy = _bounds$9[1],
-	    sz = _bounds$9[2];
-
-	var _bounds$10 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$10[0],
-	    ey = _bounds$10[1],
-	    ez = _bounds$10[2];
-
-	var _dims4 = _slicedToArray(dims, 3),
-	    width = _dims4[0],
-	    height = _dims4[1],
-	    depth = _dims4[2];
-
-	var bw = ex - sx;
+	var bw = ex-sx;
 	var bh = 2;
-	var bd = ez - sz;
+	var bd = ez-sz;
 
-	var off1 = 0,
-	    off2 = bw;
+	var off1 = 0, off2 = bw;
 	if (dir === -1) {
 		off1 = bw;
 		off2 = 0;
@@ -3115,18 +3094,18 @@ exports.marchingCubeCapY = function (dims, data, isoMin, isoMax, bounds, dir) {
 
 	var dataSlice = new Uint8Array(bw * bh * bd);
 	var zStride = width * height;
-	for (var z = sz, dz = 0; z < ez; z++, dz++) {
-		for (var x = sx, dx = 0; x < ex; x++, dx++) {
+	for (var z=sz,dz=0; z<ez; z++,dz++) {
+		for (var x=sx,dx=0; x<ex; x++,dx++) {
 			var off = z * zStride + x;
-			var v = data[off + width * capY];
-			dataSlice[off1 + dz * bw * bh + dx] = 0;
-			dataSlice[off2 + dz * bw * bh + dx] = v >= isoMin && v <= isoMax ? 1 : 0;
+			var v = data[off + width*capY];
+			dataSlice[off1 + dz*bw*bh + dx] = 0;
+			dataSlice[off2 + dz*bw*bh + dx] = (v >= isoMin && v <= isoMax) ? 1 : 0;
 		}
 	}
 
 	var sliceDims = [bw, bh, bd];
-	var bounds = [[0, 0, 0], sliceDims];
-	var geoIndicesLength = (bd - 1) * (bh - 1) * (bw - 1);
+	var bounds = [[0,0,0], sliceDims];
+	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
 	if (geoIndices.length < geoIndicesLength) {
 		geoIndices = new Uint8Array(geoIndicesLength);
 	}
@@ -3135,61 +3114,48 @@ exports.marchingCubeCapY = function (dims, data, isoMin, isoMax, bounds, dir) {
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
-	for (var i = 0; i < vertices.length; i += 3) {
+	for (var i=0; i<vertices.length; i+=3) {
 		vertices[i] += sx;
-		vertices[i + 1] = capY;
-		vertices[i + 2] += sz;
+		vertices[i+1] = capY;
+		vertices[i+2] += sz;
 		normals[i] = 0;
-		normals[i + 1] = dir;
-		normals[i + 2] = 0;
+		normals[i+1] = dir;
+		normals[i+2] = 0;
 	}
 
-	return { vertices: vertices, normals: normals };
-};
+	return {vertices: vertices, normals: normals};
+}
 
-exports.marchingCubeCapZ = function (dims, data, isoMin, isoMax, bounds, dir) {
-	var capZ = dir === -1 ? bounds[0][2] : bounds[1][2] - 1;
+exports.marchingCubeCapZ = function(dims, data, isoMin, isoMax, bounds, dir) {
+	var capZ = dir === -1 ? bounds[0][2] : bounds[1][2]-1;
+	var width = dims[0], height = dims[1], depth = dims[2];
+	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
+	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
-	var _bounds$11 = _slicedToArray(bounds[0], 3),
-	    sx = _bounds$11[0],
-	    sy = _bounds$11[1],
-	    sz = _bounds$11[2];
-
-	var _bounds$12 = _slicedToArray(bounds[1], 3),
-	    ex = _bounds$12[0],
-	    ey = _bounds$12[1],
-	    ez = _bounds$12[2];
-
-	var _dims5 = _slicedToArray(dims, 3),
-	    width = _dims5[0],
-	    height = _dims5[1],
-	    depth = _dims5[2];
-
-	var bw = ex - sx;
-	var bh = ey - sy;
+	var bw = ex-sx;
+	var bh = ey-sy;
 	var bd = 2;
 
-	var off1 = 0,
-	    off2 = bh * bw;
+	var off1 = 0, off2 = bh*bw;
 	if (dir === -1) {
-		off1 = bh * bw;
+		off1 = bh*bw;
 		off2 = 0;
 	}
 
 	var dataSlice = new Uint8Array(bw * bh * bd);
 	var zStride = width * height;
-	for (var y = sy, dy = 0; y < ey; y++, dy++) {
-		for (var x = sx, dx = 0; x < ex; x++, dx++) {
+	for (var y=sy,dy=0; y<ey; y++,dy++) {
+		for (var x=sx,dx=0; x<ex; x++,dx++) {
 			var off = y * width + x;
-			var v = data[off + zStride * capZ];
-			dataSlice[off1 + dy * bw + dx] = 0;
-			dataSlice[off2 + dy * bw + dx] = v >= isoMin && v <= isoMax ? 1 : 0;
+			var v = data[off + zStride*capZ];
+			dataSlice[off1 + dy*bw + dx] = 0;
+			dataSlice[off2 + dy*bw + dx] = (v >= isoMin && v <= isoMax) ? 1 : 0;
 		}
 	}
 
 	var sliceDims = [bw, bh, bd];
-	var bounds = [[0, 0, 0], sliceDims];
-	var geoIndicesLength = (bd - 1) * (bh - 1) * (bw - 1);
+	var bounds = [[0,0,0], sliceDims];
+	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
 	if (geoIndices.length < geoIndicesLength) {
 		geoIndices = new Uint8Array(geoIndicesLength);
 	}
@@ -3198,28 +3164,30 @@ exports.marchingCubeCapZ = function (dims, data, isoMin, isoMax, bounds, dir) {
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
-	for (var i = 0; i < vertices.length; i += 3) {
+	for (var i=0; i<vertices.length; i+=3) {
 		vertices[i] += sx;
-		vertices[i + 1] += sy;
-		vertices[i + 2] = capZ;
+		vertices[i+1] += sy;
+		vertices[i+2] = capZ;
 		normals[i] = 0;
-		normals[i + 1] = 0;
-		normals[i + 2] = dir;
+		normals[i+1] = 0;
+		normals[i+2] = dir;
 	}
 
-	return { vertices: vertices, normals: normals };
-};
+	return {vertices: vertices, normals: normals};
+}
 
-exports.concatMeshes = function () {
-	console.time('concatMeshes');
+exports.concatMeshes = function() {
+	if (LOG_TIMINGS) {
+		console.time('concatMeshes');
+	}
 	var len = 0;
-	for (var i = 0; i < arguments.length; i++) {
+	for (var i=0; i<arguments.length; i++) {
 		len += arguments[i].vertices.length;
 	}
 	var vertices = new Float32Array(len);
 	var normals = new Float32Array(len);
 	var count = 0;
-	for (var i = 0; i < arguments.length; i++) {
+	for (var i=0; i<arguments.length; i++) {
 		var mesh = arguments[i];
 		var v = mesh.vertices;
 		var n = mesh.normals;
@@ -3227,41 +3195,63 @@ exports.concatMeshes = function () {
 		normals.set(n, count);
 		count += v.length;
 	}
-	console.timeEnd('concatMeshes');
-	return { vertices: vertices, normals: normals };
-};
+	if (LOG_TIMINGS) {
+		console.timeEnd('concatMeshes');
+	}
+	return {vertices: vertices, normals: normals};
+}
 
-exports.marchingCubesCaps = function (dims, data, isoMin, isoMax, bounds) {
-	console.time('isoCaps');
-	var mesh = exports.concatMeshes(exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, -1), exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, 1), exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, -1), exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, 1), exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, -1), exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, 1));
-	console.timeEnd('isoCaps');
+exports.marchingCubesCaps = function(dims, data, isoMin, isoMax, bounds) {
+	if (LOG_TIMINGS) {
+		console.time('isoCaps');
+	}
+	var mesh = exports.concatMeshes(
+		exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, 1),
+		exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, 1),
+		exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, 1)
+	);
+	if (LOG_TIMINGS) {
+		console.timeEnd('isoCaps');
+	}
 	return mesh;
 };
 
-exports.smoothNormals = function (mesh) {
-	var vertices = mesh.vertices,
-	    normals = mesh.normals;
-
+exports.smoothNormals = function(mesh) {
+	var vertices = mesh.vertices, normals = mesh.normals;
+	if (LOG_TIMINGS) {
+		console.time('computeVertexNormals');
+	}
 	computeVertexNormals(vertices, normals, normals);
+	if (LOG_TIMINGS) {
+		console.timeEnd('computeVertexNormals');
+	}
 	return mesh;
 };
 
-exports.meshConvert = function (mesh, data, dims, vertexIntensityBounds) {
-	console.time('meshConvert');
-	var vertices = mesh.vertices,
-	    normals = mesh.normals;
-
-	var _dims6 = _slicedToArray(dims, 3),
-	    w = _dims6[0],
-	    h = _dims6[1],
-	    d = _dims6[2];
-
+exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds, meshgrid) {
+	if (LOG_TIMINGS) {
+		console.time('meshConvert');
+	}
+	var vertices = mesh.vertices, normals = mesh.normals;
+	var w = dims[0], h = dims[1], d = dims[2];
 	var vertexIntensity = new Float32Array(vertices.length / 3);
-	for (var j = 0, i = 0; j < vertices.length; j += 3, i++) {
-		var x = vertices[j];
-		var y = vertices[j + 1];
-		var z = vertices[j + 2];
-		vertexIntensity[i] = data[z * h * w + y * w + x];
+	if (meshgrid) {
+		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
+			var x = meshgrid[0][vertices[j]];
+			var y = meshgrid[1][vertices[j+1]];
+			var z = meshgrid[2][vertices[j+2]];
+			vertexIntensity[i] = data[z*h*w + y*w + x];
+		}
+	} else {
+		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
+			var x = vertices[j];
+			var y = vertices[j+1];
+			var z = vertices[j+2];
+			vertexIntensity[i] = data[z*h*w + y*w + x];
+		}
 	}
 	var geo = {
 		positions: vertices,
@@ -3269,379 +3259,423 @@ exports.meshConvert = function (mesh, data, dims, vertexIntensityBounds) {
 		vertexIntensity: vertexIntensity,
 		vertexIntensityBounds: vertexIntensityBounds
 	};
-	console.timeEnd('meshConvert');
+	if (LOG_TIMINGS) {
+		console.timeEnd('meshConvert');
+	}
 	return geo;
 };
 
 },{"./lib/computeVertexNormals":10,"./lib/trimesh":12}],9:[function(require,module,exports){
-'use strict';
+'use strict'
 
-var barycentric = require('barycentric');
-var closestPointToTriangle = require('polytope-closest-point/lib/closest_point_2d.js');
+var barycentric            = require('barycentric')
+var closestPointToTriangle = require('polytope-closest-point/lib/closest_point_2d.js')
 
-module.exports = closestPointToPickLocation;
+module.exports = closestPointToPickLocation
 
 function xformMatrix(m, v) {
-  var out = [0, 0, 0, 0];
-  for (var i = 0; i < 4; ++i) {
-    for (var j = 0; j < 4; ++j) {
-      out[j] += m[4 * i + j] * v[i];
+  var out = [0,0,0,0]
+  for(var i=0; i<4; ++i) {
+    for(var j=0; j<4; ++j) {
+      out[j] += m[4*i + j] * v[i]
     }
   }
-  return out;
+  return out
 }
 
 function projectVertex(v, model, view, projection, resolution) {
-  var p = xformMatrix(projection, xformMatrix(view, xformMatrix(model, [v[0], v[1], v[2], 1])));
-  for (var i = 0; i < 3; ++i) {
-    p[i] /= p[3];
+  var p = xformMatrix(projection,
+            xformMatrix(view,
+              xformMatrix(model, [v[0], v[1], v[2], 1])))
+  for(var i=0; i<3; ++i) {
+    p[i] /= p[3]
   }
-  return [0.5 * resolution[0] * (1.0 + p[0]), 0.5 * resolution[1] * (1.0 - p[1])];
+  return [ 0.5 * resolution[0] * (1.0+p[0]), 0.5 * resolution[1] * (1.0-p[1]) ]
 }
 
 function barycentricCoord(simplex, point) {
-  if (simplex.length === 2) {
-    var d0 = 0.0;
-    var d1 = 0.0;
-    for (var i = 0; i < 2; ++i) {
-      d0 += Math.pow(point[i] - simplex[0][i], 2);
-      d1 += Math.pow(point[i] - simplex[1][i], 2);
+  if(simplex.length === 2) {
+    var d0 = 0.0
+    var d1 = 0.0
+    for(var i=0; i<2; ++i) {
+      d0 += Math.pow(point[i] - simplex[0][i], 2)
+      d1 += Math.pow(point[i] - simplex[1][i], 2)
     }
-    d0 = Math.sqrt(d0);
-    d1 = Math.sqrt(d1);
-    if (d0 + d1 < 1e-6) {
-      return [1, 0];
+    d0 = Math.sqrt(d0)
+    d1 = Math.sqrt(d1)
+    if(d0+d1 < 1e-6) {
+      return [1,0]
     }
-    return [d1 / (d0 + d1), d0 / (d1 + d0)];
-  } else if (simplex.length === 3) {
-    var closestPoint = [0, 0];
-    closestPointToTriangle(simplex[0], simplex[1], simplex[2], point, closestPoint);
-    return barycentric(simplex, closestPoint);
+    return [d1/(d0+d1),d0/(d1+d0)]
+  } else if(simplex.length === 3) {
+    var closestPoint = [0,0]
+    closestPointToTriangle(simplex[0], simplex[1], simplex[2], point, closestPoint)
+    return barycentric(simplex, closestPoint)
   }
-  return [];
+  return []
 }
 
 function interpolate(simplex, weights) {
-  var result = [0, 0, 0];
-  for (var i = 0; i < simplex.length; ++i) {
-    var p = simplex[i];
-    var w = weights[i];
-    for (var j = 0; j < 3; ++j) {
-      result[j] += w * p[j];
+  var result = [0,0,0]
+  for(var i=0; i<simplex.length; ++i) {
+    var p = simplex[i]
+    var w = weights[i]
+    for(var j=0; j<3; ++j) {
+      result[j] += w * p[j]
     }
   }
-  return result;
+  return result
 }
 
 function closestPointToPickLocation(simplex, pixelCoord, model, view, projection, resolution) {
-  if (simplex.length === 1) {
-    return [0, simplex[0].slice()];
+  if(simplex.length === 1) {
+    return [0, simplex[0].slice()]
   }
-  var simplex2D = new Array(simplex.length);
-  for (var i = 0; i < simplex.length; ++i) {
+  var simplex2D = new Array(simplex.length)
+  for(var i=0; i<simplex.length; ++i) {
     simplex2D[i] = projectVertex(simplex[i], model, view, projection, resolution);
   }
 
-  var closestIndex = 0;
-  var closestDist = Infinity;
-  for (var i = 0; i < simplex2D.length; ++i) {
-    var d2 = 0.0;
-    for (var j = 0; j < 2; ++j) {
-      d2 += Math.pow(simplex2D[i][j] - pixelCoord[j], 2);
+  var closestIndex = 0
+  var closestDist  = Infinity
+  for(var i=0; i<simplex2D.length; ++i) {
+    var d2 = 0.0
+    for(var j=0; j<2; ++j) {
+      d2 += Math.pow(simplex2D[i][j] - pixelCoord[j], 2)
     }
-    if (d2 < closestDist) {
-      closestDist = d2;
-      closestIndex = i;
+    if(d2 < closestDist) {
+      closestDist  = d2
+      closestIndex = i
     }
   }
 
-  var weights = barycentricCoord(simplex2D, pixelCoord);
-  var s = 0.0;
-  for (var i = 0; i < 3; ++i) {
-    if (weights[i] < -0.001 || weights[i] > 1.0001) {
-      return null;
+  var weights = barycentricCoord(simplex2D, pixelCoord)
+  var s = 0.0
+  for(var i=0; i<3; ++i) {
+    if(weights[i] < -0.001 ||
+       weights[i] > 1.0001) {
+      return null
     }
-    s += weights[i];
+    s += weights[i]
   }
-  if (Math.abs(s - 1.0) > 0.001) {
-    return null;
+  if(Math.abs(s - 1.0) > 0.001) {
+    return null
   }
-  return [closestIndex, interpolate(simplex, weights), weights];
+  return [closestIndex, interpolate(simplex, weights), weights]
 }
-
-},{"barycentric":19,"polytope-closest-point/lib/closest_point_2d.js":188}],10:[function(require,module,exports){
+},{"barycentric":18,"polytope-closest-point/lib/closest_point_2d.js":188}],10:[function(require,module,exports){
 "use strict";
 
-exports.computeVertexNormals = function (vertices, normals, dst) {
-	console.time('computeVertexNormals');
+exports.computeVertexNormals = function(vertices, normals, dst) {
 	if (dst === undefined) {
 		dst = new Float32Array(normals.length);
 	}
 	var vertexNormals = {};
-	for (var i = 0; i < vertices.length; i += 3) {
-		var key = (vertices[i + 2] << 20) + (vertices[i + 1] << 10) + vertices[i];
+	for (var i=0; i<vertices.length; i+=3) {
+		var key = (vertices[i+2] << 20) + (vertices[i+1] << 10) + vertices[i];
 		if (vertexNormals[key] === undefined) {
-			vertexNormals[key] = [0, 0, 0];
+			vertexNormals[key] = [0,0,0];
 		}
 		var nml = vertexNormals[key];
 		nml[0] += normals[i];
-		nml[1] += normals[i + 1];
-		nml[2] += normals[i + 2];
+		nml[1] += normals[i+1];
+		nml[2] += normals[i+2];
 	}
-	for (var i = 0; i < vertices.length; i += 3) {
-		var key = (vertices[i + 2] << 20) + (vertices[i + 1] << 10) + vertices[i];
+	for (var i=0; i<vertices.length; i+=3) {
+		var key = (vertices[i+2] << 20) + (vertices[i+1] << 10) + vertices[i];
 		var nml = vertexNormals[key];
 		dst[i] = nml[0];
-		dst[i + 1] = nml[1];
-		dst[i + 2] = nml[2];
+		dst[i+1] = nml[1];
+		dst[i+2] = nml[2];
 	}
-	console.timeEnd('computeVertexNormals');
 	return dst;
 };
-
 },{}],11:[function(require,module,exports){
-"use strict";
 
-var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position, normal;\nattribute vec2 uv;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_normal         = normal;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uv             = uv;\n}";
-var triFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\nuniform vec3 clipBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  if(any(lessThan(f_data, clipBounds[0])) || \n     any(greaterThan(f_data, clipBounds[1]))) {\n    discard;\n  }\n\n  vec3 N = normalize(f_normal);\n  vec3 L = normalize(f_lightDirection);\n  vec3 V = normalize(f_eyeDirection);\n  \n  if(!gl_FrontFacing) {\n    N = -N;\n  }\n\n  float specular = cookTorranceSpecular_1_1(L, V, N, roughness, fresnel);\n  float diffuse  = min(kambient + kdiffuse * max(dot(N, L), 0.0), 1.0);\n\n  vec4 surfaceColor = texture2D(texture, f_uv);\n  vec4 litColor = surfaceColor.a * vec4(diffuse * surfaceColor.rgb + kspecular * vec3(1,1,1) * specular,  1.0);\n\n  gl_FragColor = litColor * opacity;\n}";
-var pickVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position;\nattribute vec4 id;\n\nuniform mat4 model, view, projection;\n\nvarying vec3 f_position;\nvarying vec4 f_id;\n\nvoid main() {\n  gl_Position = projection * view * model * vec4(position, 1.0);\n  f_id        = id;\n  f_position  = position;\n}";
-var pickFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nuniform vec3  clipBounds[2];\nuniform float pickId;\n\nvarying vec3 f_position;\nvarying vec4 f_id;\n\nvoid main() {\n  if(any(lessThan(f_position, clipBounds[0])) || \n     any(greaterThan(f_position, clipBounds[1]))) {\n    discard;\n  }\n  gl_FragColor = vec4(pickId, f_id.xyz);\n}";
+
+var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position, normal;\nattribute vec2 uv;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_normal         = normal;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uv             = uv;\n}"
+var triFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nfloat beckmannDistribution_2_0(float x, float roughness) {\n  float NdotH = max(x, 0.0001);\n  float cos2Alpha = NdotH * NdotH;\n  float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;\n  float roughness2 = roughness * roughness;\n  float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;\n  return exp(tan2Alpha / roughness2) / denom;\n}\n\n\n\nfloat cookTorranceSpecular_1_1(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float roughness,\n  float fresnel) {\n\n  float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);\n  float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);\n\n  //Half angle vector\n  vec3 H = normalize(lightDirection + viewDirection);\n\n  //Geometric term\n  float NdotH = max(dot(surfaceNormal, H), 0.0);\n  float VdotH = max(dot(viewDirection, H), 0.000001);\n  float LdotH = max(dot(lightDirection, H), 0.000001);\n  float G1 = (2.0 * NdotH * VdotN) / VdotH;\n  float G2 = (2.0 * NdotH * LdotN) / LdotH;\n  float G = min(1.0, min(G1, G2));\n  \n  //Distribution term\n  float D = beckmannDistribution_2_0(NdotH, roughness);\n\n  //Fresnel term\n  float F = pow(1.0 - VdotN, fresnel);\n\n  //Multiply terms and done\n  return  G * F * D / max(3.14159265 * VdotN, 0.000001);\n}\n\n\n\nuniform vec3 clipBounds[2];\nuniform float roughness\n            , fresnel\n            , kambient\n            , kdiffuse\n            , kspecular\n            , opacity;\nuniform sampler2D texture;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec2 f_uv;\n\nvoid main() {\n  if(any(lessThan(f_data, clipBounds[0])) || \n     any(greaterThan(f_data, clipBounds[1]))) {\n    discard;\n  }\n\n  vec3 N = normalize(f_normal);\n  vec3 L = normalize(f_lightDirection);\n  vec3 V = normalize(f_eyeDirection);\n  \n  if(!gl_FrontFacing) {\n    N = -N;\n  }\n\n  float specular = cookTorranceSpecular_1_1(L, V, N, roughness, fresnel);\n  float diffuse  = min(kambient + kdiffuse * max(dot(N, L), 0.0), 1.0);\n\n  vec4 surfaceColor = texture2D(texture, f_uv);\n  vec4 litColor = surfaceColor.a * vec4(diffuse * surfaceColor.rgb + kspecular * vec3(1,1,1) * specular,  1.0);\n\n  gl_FragColor = litColor * opacity;\n}"
+var pickVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position;\nattribute vec4 id;\n\nuniform mat4 model, view, projection;\n\nvarying vec3 f_position;\nvarying vec4 f_id;\n\nvoid main() {\n  gl_Position = projection * view * model * vec4(position, 1.0);\n  f_id        = id;\n  f_position  = position;\n}"
+var pickFragSrc = "precision mediump float;\n#define GLSLIFY 1\n\nuniform vec3  clipBounds[2];\nuniform float pickId;\n\nvarying vec3 f_position;\nvarying vec4 f_id;\n\nvoid main() {\n  if(any(lessThan(f_position, clipBounds[0])) || \n     any(greaterThan(f_position, clipBounds[1]))) {\n    discard;\n  }\n  gl_FragColor = vec4(pickId, f_id.xyz);\n}"
 
 exports.meshShader = {
-  vertex: triVertSrc,
+  vertex:   triVertSrc,
   fragment: triFragSrc,
-  attributes: [{ name: 'position', type: 'vec3' }, { name: 'normal', type: 'vec3' }, { name: 'color', type: 'vec4' }, { name: 'uv', type: 'vec2' }]
-};
+  attributes: [
+    {name: 'position', type: 'vec3'},
+    {name: 'normal', type: 'vec3'},
+    {name: 'color', type: 'vec4'},
+    {name: 'uv', type: 'vec2'}
+  ]
+}
 exports.pickShader = {
-  vertex: pickVertSrc,
+  vertex:   pickVertSrc,
   fragment: pickFragSrc,
-  attributes: [{ name: 'position', type: 'vec3' }, { name: 'id', type: 'vec4' }]
-};
+  attributes: [
+    {name: 'position', type: 'vec3'},
+    {name: 'id', type: 'vec4'}
+  ]
+}
 
 },{}],12:[function(require,module,exports){
-'use strict';
+'use strict'
 
 var DEFAULT_VERTEX_NORMALS_EPSILON = 1e-6; // may be too large if triangles are very small
 var DEFAULT_FACE_NORMALS_EPSILON = 1e-6;
 
-var createShader = require('gl-shader');
-var createBuffer = require('gl-buffer');
-var createVAO = require('gl-vao');
-var createTexture = require('gl-texture2d');
-var normals = require('normals');
-var multiply = require('gl-mat4/multiply');
-var invert = require('gl-mat4/invert');
-var ndarray = require('ndarray');
-var colormap = require('colormap');
-var getContour = require('simplicial-complex-contour');
-var pool = require('typedarray-pool');
-var shaders = require('./shaders');
-var closestPoint = require('./closest-point');
+var createShader  = require('gl-shader')
+var createBuffer  = require('gl-buffer')
+var createVAO     = require('gl-vao')
+var createTexture = require('gl-texture2d')
+var normals       = require('normals')
+var multiply      = require('gl-mat4/multiply')
+var invert        = require('gl-mat4/invert')
+var ndarray       = require('ndarray')
+var colormap      = require('colormap')
+var getContour    = require('simplicial-complex-contour')
+var pool          = require('typedarray-pool')
+var shaders       = require('./shaders')
+var closestPoint  = require('./closest-point')
 
-var meshShader = shaders.meshShader;
-var wireShader = shaders.wireShader;
-var pointShader = shaders.pointShader;
-var pickShader = shaders.pickShader;
-var pointPickShader = shaders.pointPickShader;
-var contourShader = shaders.contourShader;
+var meshShader    = shaders.meshShader
+var wireShader    = shaders.wireShader
+var pointShader   = shaders.pointShader
+var pickShader    = shaders.pickShader
+var pointPickShader = shaders.pointPickShader
+var contourShader = shaders.contourShader
 
-var identityMatrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+var identityMatrix = [
+  1,0,0,0,
+  0,1,0,0,
+  0,0,1,0,
+  0,0,0,1]
 
-function SimplicialMesh(gl, texture, triShader, lineShader, pointShader, pickShader, pointPickShader, contourShader, trianglePositions, triangleIds, triangleColors, triangleUVs, triangleNormals, triangleVAO, edgePositions, edgeIds, edgeColors, edgeUVs, edgeVAO, pointPositions, pointIds, pointColors, pointUVs, pointSizes, pointVAO, contourPositions, contourVAO) {
+function SimplicialMesh(gl
+  , texture
+  , triShader
+  , lineShader
+  , pointShader
+  , pickShader
+  , pointPickShader
+  , contourShader
+  , trianglePositions
+  , triangleIds
+  , triangleColors
+  , triangleUVs
+  , triangleNormals
+  , triangleVAO
+  , edgePositions
+  , edgeIds
+  , edgeColors
+  , edgeUVs
+  , edgeVAO
+  , pointPositions
+  , pointIds
+  , pointColors
+  , pointUVs
+  , pointSizes
+  , pointVAO
+  , contourPositions
+  , contourVAO) {
 
-  this.gl = gl;
-  this.positions = [];
-  this.intensity = [];
-  this.texture = texture;
-  this.dirty = true;
+  this.gl                = gl
+  this.positions         = []
+  this.intensity         = []
+  this.texture           = texture
+  this.dirty             = true
 
-  this.triShader = triShader;
-  this.pickShader = pickShader;
+  this.triShader         = triShader
+  this.pickShader        = pickShader
 
-  this.trianglePositions = trianglePositions;
-  this.triangleNormals = triangleNormals;
-  this.triangleUVs = triangleUVs;
-  this.triangleIds = triangleIds;
-  this.triangleVAO = triangleVAO;
-  this.triangleCount = 0;
+  this.trianglePositions = trianglePositions
+  this.triangleNormals   = triangleNormals
+  this.triangleUVs       = triangleUVs
+  this.triangleIds       = triangleIds
+  this.triangleVAO       = triangleVAO
+  this.triangleCount     = 0
 
-  this.pickId = 1;
-  this.bounds = [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]];
-  this.clipBounds = [[-Infinity, -Infinity, -Infinity], [Infinity, Infinity, Infinity]];
+  this.pickId            = 1
+  this.bounds            = [
+    [ Infinity, Infinity, Infinity],
+    [-Infinity,-Infinity,-Infinity] ]
+  this.clipBounds        = [
+    [-Infinity,-Infinity,-Infinity],
+    [ Infinity, Infinity, Infinity] ]
 
-  this.lightPosition = [1e5, 1e5, 0];
-  this.ambientLight = 0.8;
-  this.diffuseLight = 0.8;
-  this.specularLight = 2.0;
-  this.roughness = 0.5;
-  this.fresnel = 1.5;
+  this.lightPosition = [1e5, 1e5, 0]
+  this.ambientLight  = 0.8
+  this.diffuseLight  = 0.8
+  this.specularLight = 2.0
+  this.roughness     = 0.5
+  this.fresnel       = 1.5
 
-  this.opacity = 1.0;
+  this.opacity       = 1.0
 
-  this._model = identityMatrix;
-  this._view = identityMatrix;
-  this._projection = identityMatrix;
-  this._resolution = [1, 1];
+  this._model       = identityMatrix
+  this._view        = identityMatrix
+  this._projection  = identityMatrix
+  this._resolution  = [1,1]
 }
 
-var proto = SimplicialMesh.prototype;
+var proto = SimplicialMesh.prototype
 
-proto.isOpaque = function () {
-  return this.opacity >= 1;
-};
+proto.isOpaque = function() {
+  return this.opacity >= 1
+}
 
-proto.isTransparent = function () {
-  return this.opacity < 1;
-};
+proto.isTransparent = function() {
+  return this.opacity < 1
+}
 
-proto.pickSlots = 1;
+proto.pickSlots = 1
 
-proto.setPickBase = function (id) {
-  this.pickId = id;
-};
+proto.setPickBase = function(id) {
+  this.pickId = id
+}
 
 function genColormap(param) {
   var colors = colormap({
-    colormap: param,
-    nshades: 256,
-    format: 'rgba'
-  });
+      colormap: param
+    , nshades:  256
+    , format:  'rgba'
+  })
 
-  var result = new Uint8Array(256 * 4);
-  for (var i = 0; i < 256; ++i) {
-    var c = colors[i];
-    for (var j = 0; j < 3; ++j) {
-      result[4 * i + j] = c[j];
+  var result = new Uint8Array(256*4)
+  for(var i=0; i<256; ++i) {
+    var c = colors[i]
+    for(var j=0; j<3; ++j) {
+      result[4*i+j] = c[j]
     }
-    result[4 * i + 3] = c[3] * 255;
+    result[4*i+3] = c[3]*255
   }
 
-  return ndarray(result, [256, 256, 4], [4, 0, 1]);
+  return ndarray(result, [256,256,4], [4,0,1])
 }
 
 function takeZComponent(array) {
-  var result = new Float32Array(array.length / 3);
-  for (var i = 2, j = 0; i < array.length; i += 3, j++) {
-    result[j] = array[i];
+  var result = new Float32Array(array.length/3)
+  for(var i=2, j=0; i<array.length; i+=3, j++) {
+    result[j] = array[i]
   }
-  return result;
+  return result
 }
 
-proto.highlight = function (selection) {
-  if (!selection || !this.contourEnable) {
-    this.contourCount = 0;
-    return;
+proto.highlight = function(selection) {
+  if(!selection || !this.contourEnable) {
+    this.contourCount = 0
+    return
   }
-  var level = getContour(this.cells, this.intensity, selection.intensity);
-  var cells = level.cells;
-  var vertexIds = level.vertexIds;
-  var vertexWeights = level.vertexWeights;
-  var numCells = cells.length;
-  var result = pool.mallocFloat32(2 * 3 * numCells);
-  var ptr = 0;
-  for (var i = 0; i < numCells; ++i) {
-    var c = cells[i];
-    for (var j = 0; j < 2; ++j) {
-      var v = c[0];
-      if (c.length === 2) {
-        v = c[j];
+  var level = getContour(this.cells, this.intensity, selection.intensity)
+  var cells         = level.cells
+  var vertexIds     = level.vertexIds
+  var vertexWeights = level.vertexWeights
+  var numCells = cells.length
+  var result = pool.mallocFloat32(2 * 3 * numCells)
+  var ptr = 0
+  for(var i=0; i<numCells; ++i) {
+    var c = cells[i]
+    for(var j=0; j<2; ++j) {
+      var v = c[0]
+      if(c.length === 2) {
+        v = c[j]
       }
-      var a = vertexIds[v][0];
-      var b = vertexIds[v][1];
-      var w = vertexWeights[v];
-      var wi = 1.0 - w;
-      var pa = this.positions[a];
-      var pb = this.positions[b];
-      for (var k = 0; k < 3; ++k) {
-        result[ptr++] = w * pa[k] + wi * pb[k];
+      var a = vertexIds[v][0]
+      var b = vertexIds[v][1]
+      var w = vertexWeights[v]
+      var wi = 1.0 - w
+      var pa = this.positions[a]
+      var pb = this.positions[b]
+      for(var k=0; k<3; ++k) {
+        result[ptr++] = w * pa[k] + wi * pb[k]
       }
     }
   }
-  this.contourCount = ptr / 3 | 0;
-  this.contourPositions.update(result.subarray(0, ptr));
-  pool.free(result);
-};
+  this.contourCount = (ptr / 3)|0
+  this.contourPositions.update(result.subarray(0, ptr))
+  pool.free(result)
+}
 
-proto.update = function (params) {
-  params = params || {};
-  var gl = this.gl;
+proto.update = function(params) {
+  params = params || {}
+  var gl = this.gl
 
-  this.dirty = true;
+  this.dirty = true
 
-  if ('lightPosition' in params) {
-    this.lightPosition = params.lightPosition;
+  if('lightPosition' in params) {
+    this.lightPosition = params.lightPosition
   }
-  if ('opacity' in params) {
-    this.opacity = params.opacity;
+  if('opacity' in params) {
+    this.opacity = params.opacity
   }
-  if ('ambient' in params) {
-    this.ambientLight = params.ambient;
+  if('ambient' in params) {
+    this.ambientLight  = params.ambient
   }
-  if ('diffuse' in params) {
-    this.diffuseLight = params.diffuse;
+  if('diffuse' in params) {
+    this.diffuseLight = params.diffuse
   }
-  if ('specular' in params) {
-    this.specularLight = params.specular;
+  if('specular' in params) {
+    this.specularLight = params.specular
   }
-  if ('roughness' in params) {
-    this.roughness = params.roughness;
+  if('roughness' in params) {
+    this.roughness = params.roughness
   }
-  if ('fresnel' in params) {
-    this.fresnel = params.fresnel;
+  if('fresnel' in params) {
+    this.fresnel = params.fresnel
   }
 
-  if (params.texture) {
-    this.texture.dispose();
-    this.texture = createTexture(gl, params.texture);
+  if(params.texture) {
+    this.texture.dispose()
+    this.texture = createTexture(gl, params.texture)
   } else if (params.colormap) {
-    this.texture.shape = [256, 256];
-    this.texture.minFilter = gl.LINEAR_MIPMAP_LINEAR;
-    this.texture.magFilter = gl.LINEAR;
-    this.texture.setPixels(genColormap(params.colormap));
-    this.texture.generateMipmap();
+    this.texture.shape = [256,256]
+    this.texture.minFilter = gl.LINEAR_MIPMAP_LINEAR
+    this.texture.magFilter = gl.LINEAR
+    this.texture.setPixels(genColormap(params.colormap))
+    this.texture.generateMipmap()
   }
 
   // var cells = params.cells
-  var positions = params.positions;
+  var positions = params.positions
 
-  if (!positions) {
-    return;
+  if(!positions) {
+    return
   }
 
   //Save geometry data for picking calculations
-  this.positions = positions;
+  this.positions = positions
 
   //Compute normals
-  var vertexNormals = params.vertexNormals;
+  var vertexNormals = params.vertexNormals
 
   //UVs
-  var vertexIntensity = params.vertexIntensity;
+  var vertexIntensity = params.vertexIntensity
 
-  var intensityLo = Infinity;
-  var intensityHi = -Infinity;
-  if (vertexIntensity) {
-    if (params.vertexIntensityBounds) {
-      intensityLo = +params.vertexIntensityBounds[0];
-      intensityHi = +params.vertexIntensityBounds[1];
+  var intensityLo     = Infinity
+  var intensityHi     = -Infinity
+  if(vertexIntensity) {
+    if(params.vertexIntensityBounds) {
+      intensityLo = +params.vertexIntensityBounds[0]
+      intensityHi = +params.vertexIntensityBounds[1]
     } else {
-      for (var i = 0; i < vertexIntensity.length; ++i) {
-        var f = vertexIntensity[i];
-        intensityLo = Math.min(intensityLo, f);
-        intensityHi = Math.max(intensityHi, f);
+      for(var i=0; i<vertexIntensity.length; ++i) {
+        var f = vertexIntensity[i]
+        intensityLo = Math.min(intensityLo, f)
+        intensityHi = Math.max(intensityHi, f)
       }
     }
   } else {
-    for (var i = 2; i < positions.length; i += 3) {
-      var f = positions[i];
-      intensityLo = Math.min(intensityLo, f);
-      intensityHi = Math.max(intensityHi, f);
+    for(var i=2; i<positions.length; i+=3) {
+      var f = positions[i]
+      intensityLo = Math.min(intensityLo, f)
+      intensityHi = Math.max(intensityHi, f)
     }
   }
 
-  if (vertexIntensity) {
-    this.intensity = vertexIntensity;
+
+  if(vertexIntensity) {
+    this.intensity = vertexIntensity
   } else {
-    this.intensity = takeZComponent(positions);
+    this.intensity = takeZComponent(positions)
   }
 
   //Pack cells into buffers
@@ -3650,194 +3684,212 @@ proto.update = function (params) {
   var tIds = new Uint32Array(vertexCount);
   var tUVs = new Float32Array(vertexCount * 2);
 
-  for (var i = 0, j = 0; i < vertexCount; i++, j += 2) {
+  for(var i=0,j=0; i<vertexCount; i++,j+=2) {
     tUVs[j] = (this.intensity[i] - intensityLo) / (intensityHi - intensityLo);
-    tIds[i] = i / 3 | 0;
+    tIds[i] = (i/3) | 0;
   }
 
-  this.triangleCount = triangleCount;
+  this.triangleCount  = triangleCount
 
-  this.trianglePositions.update(positions);
-  this.triangleUVs.update(tUVs);
-  this.triangleNormals.update(vertexNormals);
-  this.triangleIds.update(tIds);
-};
+  this.trianglePositions.update(positions)
+  this.triangleUVs.update(tUVs)
+  this.triangleNormals.update(vertexNormals)
+  this.triangleIds.update(tIds)
+}
 
-proto.drawTransparent = proto.draw = function (params) {
-  params = params || {};
-  var gl = this.gl;
-  var model = params.model || identityMatrix;
-  var view = params.view || identityMatrix;
-  var projection = params.projection || identityMatrix;
+proto.drawTransparent = 
+proto.draw = 
+function(params) {
+  params = params || {}
+  var gl          = this.gl
+  var model       = params.model      || identityMatrix
+  var view        = params.view       || identityMatrix
+  var projection  = params.projection || identityMatrix
 
-  var clipBounds = [[-1e6, -1e6, -1e6], [1e6, 1e6, 1e6]];
-  for (var i = 0; i < 3; ++i) {
-    clipBounds[0][i] = Math.max(clipBounds[0][i], this.clipBounds[0][i]);
-    clipBounds[1][i] = Math.min(clipBounds[1][i], this.clipBounds[1][i]);
+  var clipBounds = [[-1e6,-1e6,-1e6],[1e6,1e6,1e6]]
+  for(var i=0; i<3; ++i) {
+    clipBounds[0][i] = Math.max(clipBounds[0][i], this.clipBounds[0][i])
+    clipBounds[1][i] = Math.min(clipBounds[1][i], this.clipBounds[1][i])
   }
 
   var uniforms = {
-    model: model,
-    view: view,
+    model:      model,
+    view:       view,
     projection: projection,
 
     clipBounds: clipBounds,
 
-    kambient: this.ambientLight,
-    kdiffuse: this.diffuseLight,
-    kspecular: this.specularLight,
-    roughness: this.roughness,
-    fresnel: this.fresnel,
+    kambient:   this.ambientLight,
+    kdiffuse:   this.diffuseLight,
+    kspecular:  this.specularLight,
+    roughness:  this.roughness,
+    fresnel:    this.fresnel,
 
-    eyePosition: [0, 0, 0],
-    lightPosition: [0, 0, 0],
+    eyePosition:   [0,0,0],
+    lightPosition: [0,0,0],
 
-    opacity: this.opacity,
+    opacity:  this.opacity,
 
     contourColor: this.contourColor,
 
-    texture: 0
-  };
-
-  this.texture.bind(0);
-
-  var invCameraMatrix = new Array(16);
-  multiply(invCameraMatrix, uniforms.view, uniforms.model);
-  multiply(invCameraMatrix, uniforms.projection, invCameraMatrix);
-  invert(invCameraMatrix, invCameraMatrix);
-
-  for (var i = 0; i < 3; ++i) {
-    uniforms.eyePosition[i] = invCameraMatrix[12 + i] / invCameraMatrix[15];
+    texture:    0
   }
 
-  var w = invCameraMatrix[15];
-  for (var i = 0; i < 3; ++i) {
-    w += this.lightPosition[i] * invCameraMatrix[4 * i + 3];
+  this.texture.bind(0)
+
+  var invCameraMatrix = new Array(16)
+  multiply(invCameraMatrix, uniforms.view, uniforms.model)
+  multiply(invCameraMatrix, uniforms.projection, invCameraMatrix)
+  invert(invCameraMatrix, invCameraMatrix)
+
+  for(var i=0; i<3; ++i) {
+    uniforms.eyePosition[i] = invCameraMatrix[12+i] / invCameraMatrix[15]
   }
-  for (var i = 0; i < 3; ++i) {
-    var s = invCameraMatrix[12 + i];
-    for (var j = 0; j < 3; ++j) {
-      s += invCameraMatrix[4 * j + i] * this.lightPosition[j];
+
+  var w = invCameraMatrix[15]
+  for(var i=0; i<3; ++i) {
+    w += this.lightPosition[i] * invCameraMatrix[4*i+3]
+  }
+  for(var i=0; i<3; ++i) {
+    var s = invCameraMatrix[12+i]
+    for(var j=0; j<3; ++j) {
+      s += invCameraMatrix[4*j+i] * this.lightPosition[j]
     }
-    uniforms.lightPosition[i] = s / w;
+    uniforms.lightPosition[i] = s / w
   }
 
-  if (this.triangleCount > 0) {
-    var shader = this.triShader;
-    shader.bind();
-    shader.uniforms = uniforms;
+  if(this.triangleCount > 0) {
+    var shader = this.triShader
+    shader.bind()
+    shader.uniforms = uniforms
 
-    this.triangleVAO.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, this.triangleCount * 3);
-    this.triangleVAO.unbind();
+    this.triangleVAO.bind()
+    gl.drawArrays(gl.TRIANGLES, 0, this.triangleCount*3)
+    this.triangleVAO.unbind()
   }
-};
+}
 
-proto.drawPick = function (params) {
-  params = params || {};
+proto.drawPick = function(params) {
+  params = params || {}
 
-  var gl = this.gl;
+  var gl         = this.gl
 
-  var model = params.model || identityMatrix;
-  var view = params.view || identityMatrix;
-  var projection = params.projection || identityMatrix;
+  var model      = params.model      || identityMatrix
+  var view       = params.view       || identityMatrix
+  var projection = params.projection || identityMatrix
 
-  var clipBounds = [[-1e6, -1e6, -1e6], [1e6, 1e6, 1e6]];
-  for (var i = 0; i < 3; ++i) {
-    clipBounds[0][i] = Math.max(clipBounds[0][i], this.clipBounds[0][i]);
-    clipBounds[1][i] = Math.min(clipBounds[1][i], this.clipBounds[1][i]);
+  var clipBounds = [[-1e6,-1e6,-1e6],[1e6,1e6,1e6]]
+  for(var i=0; i<3; ++i) {
+    clipBounds[0][i] = Math.max(clipBounds[0][i], this.clipBounds[0][i])
+    clipBounds[1][i] = Math.min(clipBounds[1][i], this.clipBounds[1][i])
   }
 
   //Save camera parameters
-  this._model = [].slice.call(model);
-  this._view = [].slice.call(view);
-  this._projection = [].slice.call(projection);
-  this._resolution = [gl.drawingBufferWidth, gl.drawingBufferHeight];
+  this._model      = [].slice.call(model)
+  this._view       = [].slice.call(view)
+  this._projection = [].slice.call(projection)
+  this._resolution = [gl.drawingBufferWidth, gl.drawingBufferHeight]
 
   var uniforms = {
-    model: model,
-    view: view,
+    model:      model,
+    view:       view,
     projection: projection,
     clipBounds: clipBounds,
-    pickId: this.pickId / 255.0
-  };
-
-  var shader = this.pickShader;
-  shader.bind();
-  shader.uniforms = uniforms;
-
-  if (this.triangleCount > 0) {
-    this.triangleVAO.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, this.triangleCount * 3);
-    this.triangleVAO.unbind();
-  }
-};
-
-proto.pick = function (pickData) {
-  if (!pickData) {
-    return null;
-  }
-  if (pickData.id !== this.pickId) {
-    return null;
+    pickId:     this.pickId / 255.0,
   }
 
-  var cellId = pickData.value[0] + 256 * pickData.value[1] + 65536 * pickData.value[2];
-  var cell = [cellId * 3 + 0, cellId * 3 + 1, cellId * 3 + 2];
-  var positions = this.positions;
+  var shader = this.pickShader
+  shader.bind()
+  shader.uniforms = uniforms
 
-  var simplex = new Array(cell.length);
-  for (var i = 0; i < cell.length; ++i) {
-    simplex[i] = [positions[cell[i] * 3 + 0], positions[cell[i] * 3 + 1], positions[cell[i] * 3 + 2]];
+  if(this.triangleCount > 0) {
+    this.triangleVAO.bind()
+    gl.drawArrays(gl.TRIANGLES, 0, this.triangleCount*3)
+    this.triangleVAO.unbind()
+  }
+}
+
+
+proto.pick = function(pickData) {
+  if(!pickData) {
+    return null
+  }
+  if(pickData.id !== this.pickId) {
+    return null
   }
 
-  var data = closestPoint(simplex, [pickData.coord[0], this._resolution[1] - pickData.coord[1]], this._model, this._view, this._projection, this._resolution);
+  var cellId    = pickData.value[0] + 256*pickData.value[1] + 65536*pickData.value[2]
+  var cell      = [cellId*3+0, cellId*3+1, cellId*3+2]
+  var positions = this.positions
 
-  if (!data) {
-    return null;
+  var simplex   = new Array(cell.length)
+  for(var i=0; i<cell.length; ++i) {
+    simplex[i] = [
+      positions[cell[i]*3 + 0],
+      positions[cell[i]*3 + 1],
+      positions[cell[i]*3 + 2]
+    ];
   }
 
-  var weights = data[2];
-  var interpIntensity = 0.0;
-  for (var i = 0; i < cell.length; ++i) {
-    interpIntensity += weights[i] * this.intensity[cell[i]];
+  var data = closestPoint(
+    simplex,
+    [pickData.coord[0], this._resolution[1]-pickData.coord[1]],
+    this._model,
+    this._view,
+    this._projection,
+    this._resolution)
+
+  if(!data) {
+    return null
+  }
+
+  var weights = data[2]
+  var interpIntensity = 0.0
+  for(var i=0; i<cell.length; ++i) {
+    interpIntensity += weights[i] * this.intensity[cell[i]]
   }
 
   return {
     position: data[1],
-    index: cell[data[0]],
-    cell: cell,
-    cellId: cellId,
-    intensity: interpIntensity,
-    dataCoordinate: [this.positions[cell[data[0]] * 3 + 0], this.positions[cell[data[0]] * 3 + 1], this.positions[cell[data[0]] * 3 + 2]]
-  };
-};
+    index:    cell[data[0]],
+    cell:     cell,
+    cellId:   cellId,
+    intensity:  interpIntensity,
+    dataCoordinate: [
+      this.positions[cell[data[0]]*3 + 0],
+      this.positions[cell[data[0]]*3 + 1],
+      this.positions[cell[data[0]]*3 + 2]
+    ]
+  }
+}
 
-proto.dispose = function () {
-  this.texture.dispose();
 
-  this.triShader.dispose();
-  this.pickShader.dispose();
+proto.dispose = function() {
+  this.texture.dispose()
 
-  this.triangleVAO.dispose();
-  this.trianglePositions.dispose();
-  this.triangleUVs.dispose();
-  this.triangleNormals.dispose();
-  this.triangleIds.dispose();
-};
+  this.triShader.dispose()
+  this.pickShader.dispose()
+
+  this.triangleVAO.dispose()
+  this.trianglePositions.dispose()
+  this.triangleUVs.dispose()
+  this.triangleNormals.dispose()
+  this.triangleIds.dispose()
+}
 
 function createMeshShader(gl) {
-  var shader = createShader(gl, meshShader.vertex, meshShader.fragment);
-  shader.attributes.position.location = 0;
-  shader.attributes.uv.location = 2;
-  shader.attributes.normal.location = 3;
-  return shader;
+  var shader = createShader(gl, meshShader.vertex, meshShader.fragment)
+  shader.attributes.position.location = 0
+  shader.attributes.uv.location       = 2
+  shader.attributes.normal.location   = 3
+  return shader
 }
 
 function createPickShader(gl) {
-  var shader = createShader(gl, pickShader.vertex, pickShader.fragment);
-  shader.attributes.position.location = 0;
-  shader.attributes.id.location = 1;
-  return shader;
+  var shader = createShader(gl, pickShader.vertex, pickShader.fragment)
+  shader.attributes.position.location = 0
+  shader.attributes.id.location       = 1
+  return shader
 }
 
 function createSimplicialMesh(gl, params) {
@@ -3848,49 +3900,81 @@ function createSimplicialMesh(gl, params) {
 
   console.time("createSimplicialMesh init");
 
-  var triShader = createMeshShader(gl);
-  var pickShader = createPickShader(gl);
+  var triShader       = createMeshShader(gl)
+  var pickShader      = createPickShader(gl)
 
-  var meshTexture = createTexture(gl, ndarray(new Uint8Array([255, 255, 255, 255]), [1, 1, 4]));
-  meshTexture.generateMipmap();
-  meshTexture.minFilter = gl.LINEAR_MIPMAP_LINEAR;
-  meshTexture.magFilter = gl.LINEAR;
+  var meshTexture       = createTexture(gl,
+    ndarray(new Uint8Array([255,255,255,255]), [1,1,4]))
+  meshTexture.generateMipmap()
+  meshTexture.minFilter = gl.LINEAR_MIPMAP_LINEAR
+  meshTexture.magFilter = gl.LINEAR
 
-  var trianglePositions = createBuffer(gl);
-  var triangleUVs = createBuffer(gl);
-  var triangleNormals = createBuffer(gl);
-  var triangleIds = createBuffer(gl);
-  var triangleVAO = createVAO(gl, [{ buffer: trianglePositions,
-    type: gl.FLOAT,
-    size: 3
-  }, { buffer: triangleIds,
-    type: gl.UNSIGNED_BYTE,
-    size: 4,
-    normalized: true
-  }, { buffer: triangleUVs,
-    type: gl.FLOAT,
-    size: 2
-  }, { buffer: triangleNormals,
-    type: gl.FLOAT,
-    size: 3
-  }]);
+  var trianglePositions = createBuffer(gl)
+  var triangleUVs       = createBuffer(gl)
+  var triangleNormals   = createBuffer(gl)
+  var triangleIds       = createBuffer(gl)
+  var triangleVAO       = createVAO(gl, [
+    { buffer: trianglePositions,
+      type: gl.FLOAT,
+      size: 3
+    },
+    { buffer: triangleIds,
+      type: gl.UNSIGNED_BYTE,
+      size: 4,
+      normalized: true
+    },
+    { buffer: triangleUVs,
+      type: gl.FLOAT,
+      size: 2
+    },
+    { buffer: triangleNormals,
+      type: gl.FLOAT,
+      size: 3
+    }
+  ])
 
   console.timeEnd("createSimplicialMesh init");
   console.time("new SimplicialMesh");
 
-  var mesh = new SimplicialMesh(gl, meshTexture, triShader, null, null, pickShader, null, null, trianglePositions, triangleIds, null, triangleUVs, triangleNormals, triangleVAO, null, null, null, null, null, null, null, null, null, null, null, null, null);
+  var mesh = new SimplicialMesh(gl
+    , meshTexture
+    , triShader
+    , null
+    , null
+    , pickShader
+    , null
+    , null
+    , trianglePositions
+    , triangleIds
+    , null
+    , triangleUVs
+    , triangleNormals
+    , triangleVAO
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null
+    , null)
 
   console.timeEnd("new SimplicialMesh");
   console.time("mesh.update");
-  mesh.update(params);
+  mesh.update(params)
   console.timeEnd("mesh.update");
 
-  return mesh;
+  return mesh
 }
 
-module.exports = createSimplicialMesh;
+module.exports = createSimplicialMesh
 
-},{"./closest-point":9,"./shaders":11,"colormap":58,"gl-buffer":84,"gl-mat4/invert":99,"gl-mat4/multiply":101,"gl-shader":128,"gl-texture2d":137,"gl-vao":141,"ndarray":175,"normals":177,"simplicial-complex-contour":207,"typedarray-pool":224}],13:[function(require,module,exports){
+},{"./closest-point":9,"./shaders":11,"colormap":56,"gl-buffer":82,"gl-mat4/invert":97,"gl-mat4/multiply":99,"gl-shader":126,"gl-texture2d":135,"gl-vao":139,"ndarray":175,"normals":177,"simplicial-complex-contour":207,"typedarray-pool":223}],13:[function(require,module,exports){
 'use strict'
 
 module.exports = createCamera
@@ -4242,7 +4326,7 @@ function createViewController(options) {
     matrix: matrix
   }, mode)
 }
-},{"matrix-camera-controller":165,"orbit-camera-controller":179,"turntable-camera-controller":221}],15:[function(require,module,exports){
+},{"matrix-camera-controller":165,"orbit-camera-controller":179,"turntable-camera-controller":220}],15:[function(require,module,exports){
 var padLeft = require('pad-left')
 
 module.exports = addLineNumbers
@@ -4313,200 +4397,11 @@ function affineHull(points) {
   return index
 }
 },{"robust-orientation":201}],17:[function(require,module,exports){
-'use strict';
-
-var arraytools  = function () {
-
-  var that = {};
-
-  var RGB_REGEX =  /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,.*)?\)$/;
-  var RGB_GROUP_REGEX = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,?\s*(.*)?\)$/;
-
-  function isPlainObject (v) {
-    return !Array.isArray(v) && v !== null && typeof v === 'object';
-  }
-
-  function linspace (start, end, num) {
-    var inc = (end - start) / Math.max(num - 1, 1);
-    var a = [];
-    for( var ii = 0; ii < num; ii++)
-      a.push(start + ii*inc);
-    return a;
-  }
-
-  function zip () {
-      var arrays = [].slice.call(arguments);
-      var lengths = arrays.map(function (a) {return a.length;});
-      var len = Math.min.apply(null, lengths);
-      var zipped = [];
-      for (var i = 0; i < len; i++) {
-          zipped[i] = [];
-          for (var j = 0; j < arrays.length; ++j) {
-              zipped[i][j] = arrays[j][i];
-          }
-      }
-      return zipped;
-  }
-
-  function zip3 (a, b, c) {
-      var len = Math.min.apply(null, [a.length, b.length, c.length]);
-      var result = [];
-      for (var n = 0; n < len; n++) {
-          result.push([a[n], b[n], c[n]]);
-      }
-      return result;
-  }
-
-  function sum (A) {
-    var acc = 0;
-    accumulate(A, acc);
-    function accumulate(x) {
-      for (var i = 0; i < x.length; i++) {
-        if (Array.isArray(x[i]))
-          accumulate(x[i], acc);
-        else
-          acc += x[i];
-      }
-    }
-    return acc;
-  }
-
-  function copy2D (arr) {
-    var carr = [];
-    for (var i = 0; i < arr.length; ++i) {
-      carr[i] = [];
-      for (var j = 0; j < arr[i].length; ++j) {
-        carr[i][j] = arr[i][j];
-      }
-    }
-
-    return carr;
-  }
-
-
-  function copy1D (arr) {
-    var carr = [];
-    for (var i = 0; i < arr.length; ++i) {
-      carr[i] = arr[i];
-    }
-
-    return carr;
-  }
-
-
-  function isEqual(arr1, arr2) {
-    if(arr1.length !== arr2.length)
-      return false;
-    for(var i = arr1.length; i--;) {
-      if(arr1[i] !== arr2[i])
-        return false;
-    }
-
-    return true;
-  }
-
-
-  function str2RgbArray(str, twoFiftySix) {
-    // convert hex or rbg strings to 0->1 or 0->255 rgb array
-    var rgb,
-        match;
-
-    if (typeof str !== 'string') return str;
-
-    rgb = [];
-    // hex notation
-    if (str[0] === '#') {
-      str = str.substr(1) // remove hash
-      if (str.length === 3) str += str // fff -> ffffff
-      match = parseInt(str, 16);
-      rgb[0] = ((match >> 16) & 255);
-      rgb[1] = ((match >> 8) & 255);
-      rgb[2] = (match & 255);
-    }
-
-    // rgb(34, 34, 127) or rgba(34, 34, 127, 0.1) notation
-    else if (RGB_REGEX.test(str)) {
-      match = str.match(RGB_GROUP_REGEX);
-      rgb[0] = parseInt(match[1]);
-      rgb[1] = parseInt(match[2]);
-      rgb[2] = parseInt(match[3]);
-    }
-
-    if (!twoFiftySix) {
-      for (var j=0; j<3; ++j) rgb[j] = rgb[j]/255
-    }
-
-
-    return rgb;
-  }
-
-
-  function str2RgbaArray(str, twoFiftySix) {
-    // convert hex or rbg strings to 0->1 or 0->255 rgb array
-    var rgb,
-        match;
-
-    if (typeof str !== 'string') return str;
-
-    rgb = [];
-    // hex notation
-    if (str[0] === '#') {
-      str = str.substr(1) // remove hash
-      if (str.length === 3) str += str // fff -> ffffff
-      match = parseInt(str, 16);
-      rgb[0] = ((match >> 16) & 255);
-      rgb[1] = ((match >> 8) & 255);
-      rgb[2] = (match & 255);
-    }
-
-    // rgb(34, 34, 127) or rgba(34, 34, 127, 0.1) notation
-    else if (RGB_REGEX.test(str)) {
-      match = str.match(RGB_GROUP_REGEX);
-      rgb[0] = parseInt(match[1]);
-      rgb[1] = parseInt(match[2]);
-      rgb[2] = parseInt(match[3]);
-      if (match[4]) rgb[3] = parseFloat(match[4]);
-      else rgb[3] = 1.0;
-    }
-
-
-
-    if (!twoFiftySix) {
-      for (var j=0; j<3; ++j) rgb[j] = rgb[j]/255
-    }
-
-
-    return rgb;
-  }
-
-
-
-
-
-  that.isPlainObject = isPlainObject;
-  that.linspace = linspace;
-  that.zip3 = zip3;
-  that.sum = sum;
-  that.zip = zip;
-  that.isEqual = isEqual;
-  that.copy2D = copy2D;
-  that.copy1D = copy1D;
-  that.str2RgbArray = str2RgbArray;
-  that.str2RgbaArray = str2RgbaArray;
-
-  return that
-
-}
-
-
-module.exports = arraytools();
-
-},{}],18:[function(require,module,exports){
 module.exports = function _atob(str) {
   return atob(str)
 }
 
-},{}],19:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict'
 
 module.exports = barycentric
@@ -4554,7 +4449,7 @@ function barycentric(simplex, point) {
   }
   return y
 }
-},{"robust-linear-solve":200}],20:[function(require,module,exports){
+},{"robust-linear-solve":200}],19:[function(require,module,exports){
 'use strict'
 
 var rationalize = require('./lib/rationalize')
@@ -4567,7 +4462,7 @@ function add(a, b) {
     a[1].mul(b[1]))
 }
 
-},{"./lib/rationalize":30}],21:[function(require,module,exports){
+},{"./lib/rationalize":29}],20:[function(require,module,exports){
 'use strict'
 
 module.exports = cmp
@@ -4576,7 +4471,7 @@ function cmp(a, b) {
     return a[0].mul(b[1]).cmp(b[0].mul(a[1]))
 }
 
-},{}],22:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict'
 
 var rationalize = require('./lib/rationalize')
@@ -4587,7 +4482,7 @@ function div(a, b) {
   return rationalize(a[0].mul(b[1]), a[1].mul(b[0]))
 }
 
-},{"./lib/rationalize":30}],23:[function(require,module,exports){
+},{"./lib/rationalize":29}],22:[function(require,module,exports){
 'use strict'
 
 var isRat = require('./is-rat')
@@ -4649,7 +4544,7 @@ function makeRational(numer, denom) {
   return rationalize(a, b)
 }
 
-},{"./div":22,"./is-rat":24,"./lib/is-bn":28,"./lib/num-to-bn":29,"./lib/rationalize":30,"./lib/str-to-bn":31}],24:[function(require,module,exports){
+},{"./div":21,"./is-rat":23,"./lib/is-bn":27,"./lib/num-to-bn":28,"./lib/rationalize":29,"./lib/str-to-bn":30}],23:[function(require,module,exports){
 'use strict'
 
 var isBN = require('./lib/is-bn')
@@ -4660,7 +4555,7 @@ function isRat(x) {
   return Array.isArray(x) && x.length === 2 && isBN(x[0]) && isBN(x[1])
 }
 
-},{"./lib/is-bn":28}],25:[function(require,module,exports){
+},{"./lib/is-bn":27}],24:[function(require,module,exports){
 'use strict'
 
 var BN = require('bn.js')
@@ -4671,7 +4566,7 @@ function sign (x) {
   return x.cmp(new BN(0))
 }
 
-},{"bn.js":38}],26:[function(require,module,exports){
+},{"bn.js":37}],25:[function(require,module,exports){
 'use strict'
 
 var sign = require('./bn-sign')
@@ -4696,7 +4591,7 @@ function bn2num(b) {
   return sign(b) * out
 }
 
-},{"./bn-sign":25}],27:[function(require,module,exports){
+},{"./bn-sign":24}],26:[function(require,module,exports){
 'use strict'
 
 var db = require('double-bits')
@@ -4717,7 +4612,7 @@ function ctzNumber(x) {
   return h + 32
 }
 
-},{"bit-twiddle":37,"double-bits":70}],28:[function(require,module,exports){
+},{"bit-twiddle":36,"double-bits":68}],27:[function(require,module,exports){
 'use strict'
 
 var BN = require('bn.js')
@@ -4730,7 +4625,7 @@ function isBN(x) {
   return x && typeof x === 'object' && Boolean(x.words)
 }
 
-},{"bn.js":38}],29:[function(require,module,exports){
+},{"bn.js":37}],28:[function(require,module,exports){
 'use strict'
 
 var BN = require('bn.js')
@@ -4747,7 +4642,7 @@ function num2bn(x) {
   }
 }
 
-},{"bn.js":38,"double-bits":70}],30:[function(require,module,exports){
+},{"bn.js":37,"double-bits":68}],29:[function(require,module,exports){
 'use strict'
 
 var num2bn = require('./num-to-bn')
@@ -4775,7 +4670,7 @@ function rationalize(numer, denom) {
   return [ numer, denom ]
 }
 
-},{"./bn-sign":25,"./num-to-bn":29}],31:[function(require,module,exports){
+},{"./bn-sign":24,"./num-to-bn":28}],30:[function(require,module,exports){
 'use strict'
 
 var BN = require('bn.js')
@@ -4786,7 +4681,7 @@ function str2BN(x) {
   return new BN(x)
 }
 
-},{"bn.js":38}],32:[function(require,module,exports){
+},{"bn.js":37}],31:[function(require,module,exports){
 'use strict'
 
 var rationalize = require('./lib/rationalize')
@@ -4797,7 +4692,7 @@ function mul(a, b) {
   return rationalize(a[0].mul(b[0]), a[1].mul(b[1]))
 }
 
-},{"./lib/rationalize":30}],33:[function(require,module,exports){
+},{"./lib/rationalize":29}],32:[function(require,module,exports){
 'use strict'
 
 var bnsign = require('./lib/bn-sign')
@@ -4808,7 +4703,7 @@ function sign(x) {
   return bnsign(x[0]) * bnsign(x[1])
 }
 
-},{"./lib/bn-sign":25}],34:[function(require,module,exports){
+},{"./lib/bn-sign":24}],33:[function(require,module,exports){
 'use strict'
 
 var rationalize = require('./lib/rationalize')
@@ -4819,7 +4714,7 @@ function sub(a, b) {
   return rationalize(a[0].mul(b[1]).sub(a[1].mul(b[0])), a[1].mul(b[1]))
 }
 
-},{"./lib/rationalize":30}],35:[function(require,module,exports){
+},{"./lib/rationalize":29}],34:[function(require,module,exports){
 'use strict'
 
 var bn2num = require('./lib/bn-to-num')
@@ -4857,7 +4752,7 @@ function roundRat (f) {
   }
 }
 
-},{"./lib/bn-to-num":26,"./lib/ctz":27}],36:[function(require,module,exports){
+},{"./lib/bn-to-num":25,"./lib/ctz":26}],35:[function(require,module,exports){
 "use strict"
 
 function compileSearch(funcName, predicate, reversed, extraArgs, useNdarray, earlyOut) {
@@ -4919,7 +4814,7 @@ module.exports = {
   eq: compileBoundsSearch("-", true, "EQ", true)
 }
 
-},{}],37:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 /**
  * Bit twiddling hacks for JavaScript.
  *
@@ -5125,7 +5020,7 @@ exports.nextCombination = function(v) {
 }
 
 
-},{}],38:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 (function (module, exports) {
   'use strict';
 
@@ -8554,7 +8449,7 @@ exports.nextCombination = function(v) {
   };
 })(typeof module === 'undefined' || module, this);
 
-},{"buffer":2}],39:[function(require,module,exports){
+},{"buffer":2}],38:[function(require,module,exports){
 'use strict'
 
 module.exports = findBounds
@@ -8577,7 +8472,7 @@ function findBounds(points) {
   }
   return [lo, hi]
 }
-},{}],40:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict'
 
 module.exports = boxIntersectWrapper
@@ -8716,7 +8611,7 @@ function boxIntersectWrapper(arg0, arg1, arg2) {
       throw new Error('box-intersect: Invalid arguments')
   }
 }
-},{"./lib/intersect":42,"./lib/sweep":46,"typedarray-pool":224}],41:[function(require,module,exports){
+},{"./lib/intersect":41,"./lib/sweep":45,"typedarray-pool":223}],40:[function(require,module,exports){
 'use strict'
 
 var DIMENSION   = 'd'
@@ -8861,7 +8756,7 @@ function bruteForcePlanner(full) {
 
 exports.partial = bruteForcePlanner(false)
 exports.full    = bruteForcePlanner(true)
-},{}],42:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict'
 
 module.exports = boxIntersectIter
@@ -9356,7 +9251,7 @@ function boxIntersectIter(
     }
   }
 }
-},{"./brute":41,"./median":43,"./partition":44,"./sweep":46,"bit-twiddle":37,"typedarray-pool":224}],43:[function(require,module,exports){
+},{"./brute":40,"./median":42,"./partition":43,"./sweep":45,"bit-twiddle":36,"typedarray-pool":223}],42:[function(require,module,exports){
 'use strict'
 
 module.exports = findMedian
@@ -9499,7 +9394,7 @@ function findMedian(d, axis, start, end, boxes, ids) {
     start, mid, boxes, ids,
     boxes[elemSize*mid+axis])
 }
-},{"./partition":44}],44:[function(require,module,exports){
+},{"./partition":43}],43:[function(require,module,exports){
 'use strict'
 
 module.exports = genPartition
@@ -9520,7 +9415,7 @@ function genPartition(predicate, args) {
         .replace('$', predicate))
   return Function.apply(void 0, fargs)
 }
-},{}],45:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 //This code is extracted from ndarray-sort
@@ -9757,7 +9652,7 @@ function quickSort(left, right, data) {
     quickSort(less, great, data);
   }
 }
-},{}],46:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 'use strict'
 
 module.exports = {
@@ -10192,7 +10087,7 @@ red_loop:
     }
   }
 }
-},{"./sort":45,"bit-twiddle":37,"typedarray-pool":224}],47:[function(require,module,exports){
+},{"./sort":44,"bit-twiddle":36,"typedarray-pool":223}],46:[function(require,module,exports){
 var size = require('element-size')
 
 module.exports = fit
@@ -10242,7 +10137,7 @@ function fit(canvas, parent, scale) {
   }
 }
 
-},{"element-size":73}],48:[function(require,module,exports){
+},{"element-size":71}],47:[function(require,module,exports){
 'use strict'
 
 var monotoneTriangulate = require('./lib/monotone')
@@ -10326,7 +10221,7 @@ function cdt2d(points, edges, options) {
   }
 }
 
-},{"./lib/delaunay":49,"./lib/filter":50,"./lib/monotone":51,"./lib/triangulation":52}],49:[function(require,module,exports){
+},{"./lib/delaunay":48,"./lib/filter":49,"./lib/monotone":50,"./lib/triangulation":51}],48:[function(require,module,exports){
 'use strict'
 
 var inCircle = require('robust-in-sphere')[4]
@@ -10443,7 +10338,7 @@ function delaunayRefine(points, triangulation) {
   }
 }
 
-},{"binary-search-bounds":53,"robust-in-sphere":199}],50:[function(require,module,exports){
+},{"binary-search-bounds":52,"robust-in-sphere":199}],49:[function(require,module,exports){
 'use strict'
 
 var bsearch = require('binary-search-bounds')
@@ -10625,7 +10520,7 @@ function classifyFaces(triangulation, target, infinity) {
   return result
 }
 
-},{"binary-search-bounds":53}],51:[function(require,module,exports){
+},{"binary-search-bounds":52}],50:[function(require,module,exports){
 'use strict'
 
 var bsearch = require('binary-search-bounds')
@@ -10814,7 +10709,7 @@ function monotoneTriangulate(points, edges) {
   return cells
 }
 
-},{"binary-search-bounds":53,"robust-orientation":201}],52:[function(require,module,exports){
+},{"binary-search-bounds":52,"robust-orientation":201}],51:[function(require,module,exports){
 'use strict'
 
 var bsearch = require('binary-search-bounds')
@@ -10920,7 +10815,7 @@ function createTriangulation(numVerts, edges) {
   return new Triangulation(stars, edges)
 }
 
-},{"binary-search-bounds":53}],53:[function(require,module,exports){
+},{"binary-search-bounds":52}],52:[function(require,module,exports){
 "use strict"
 
 function compileSearch(funcName, predicate, reversed, extraArgs, earlyOut) {
@@ -10974,7 +10869,7 @@ module.exports = {
   eq: compileBoundsSearch("-", true, "EQ", true)
 }
 
-},{}],54:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 'use strict'
 
 module.exports = cleanPSLG
@@ -11357,7 +11252,7 @@ function cleanPSLG (points, edges, colors) {
   return modified
 }
 
-},{"./lib/rat-seg-intersect":55,"big-rat":23,"big-rat/cmp":21,"big-rat/to-float":35,"box-intersect":40,"nextafter":176,"rat-vec":191,"robust-segment-intersect":204,"union-find":225}],55:[function(require,module,exports){
+},{"./lib/rat-seg-intersect":54,"big-rat":22,"big-rat/cmp":20,"big-rat/to-float":34,"box-intersect":39,"nextafter":176,"rat-vec":191,"robust-segment-intersect":204,"union-find":224}],54:[function(require,module,exports){
 'use strict'
 
 module.exports = solveIntersection
@@ -11401,171 +11296,7 @@ function solveIntersection (a, b, c, d) {
   return r
 }
 
-},{"big-rat/div":22,"big-rat/mul":32,"big-rat/sign":33,"big-rat/sub":34,"rat-vec/add":190,"rat-vec/muls":192,"rat-vec/sub":193}],56:[function(require,module,exports){
-(function (Buffer){
-var clone = (function() {
-'use strict';
-
-/**
- * Clones (copies) an Object using deep copying.
- *
- * This function supports circular references by default, but if you are certain
- * there are no circular references in your object, you can save some CPU time
- * by calling clone(obj, false).
- *
- * Caution: if `circular` is false and `parent` contains circular references,
- * your program may enter an infinite loop and crash.
- *
- * @param `parent` - the object to be cloned
- * @param `circular` - set to true if the object to be cloned may contain
- *    circular references. (optional - true by default)
- * @param `depth` - set to a number if the object is only to be cloned to
- *    a particular depth. (optional - defaults to Infinity)
- * @param `prototype` - sets the prototype to be used when cloning an object.
- *    (optional - defaults to parent prototype).
-*/
-function clone(parent, circular, depth, prototype) {
-  var filter;
-  if (typeof circular === 'object') {
-    depth = circular.depth;
-    prototype = circular.prototype;
-    filter = circular.filter;
-    circular = circular.circular
-  }
-  // maintain two arrays for circular references, where corresponding parents
-  // and children have the same index
-  var allParents = [];
-  var allChildren = [];
-
-  var useBuffer = typeof Buffer != 'undefined';
-
-  if (typeof circular == 'undefined')
-    circular = true;
-
-  if (typeof depth == 'undefined')
-    depth = Infinity;
-
-  // recurse this function so we don't reset allParents and allChildren
-  function _clone(parent, depth) {
-    // cloning null always returns null
-    if (parent === null)
-      return null;
-
-    if (depth == 0)
-      return parent;
-
-    var child;
-    var proto;
-    if (typeof parent != 'object') {
-      return parent;
-    }
-
-    if (clone.__isArray(parent)) {
-      child = [];
-    } else if (clone.__isRegExp(parent)) {
-      child = new RegExp(parent.source, __getRegExpFlags(parent));
-      if (parent.lastIndex) child.lastIndex = parent.lastIndex;
-    } else if (clone.__isDate(parent)) {
-      child = new Date(parent.getTime());
-    } else if (useBuffer && Buffer.isBuffer(parent)) {
-      child = new Buffer(parent.length);
-      parent.copy(child);
-      return child;
-    } else {
-      if (typeof prototype == 'undefined') {
-        proto = Object.getPrototypeOf(parent);
-        child = Object.create(proto);
-      }
-      else {
-        child = Object.create(prototype);
-        proto = prototype;
-      }
-    }
-
-    if (circular) {
-      var index = allParents.indexOf(parent);
-
-      if (index != -1) {
-        return allChildren[index];
-      }
-      allParents.push(parent);
-      allChildren.push(child);
-    }
-
-    for (var i in parent) {
-      var attrs;
-      if (proto) {
-        attrs = Object.getOwnPropertyDescriptor(proto, i);
-      }
-
-      if (attrs && attrs.set == null) {
-        continue;
-      }
-      child[i] = _clone(parent[i], depth - 1);
-    }
-
-    return child;
-  }
-
-  return _clone(parent, depth);
-}
-
-/**
- * Simple flat clone using prototype, accepts only objects, usefull for property
- * override on FLAT configuration object (no nested props).
- *
- * USE WITH CAUTION! This may not behave as you wish if you do not know how this
- * works.
- */
-clone.clonePrototype = function clonePrototype(parent) {
-  if (parent === null)
-    return null;
-
-  var c = function () {};
-  c.prototype = parent;
-  return new c();
-};
-
-// private utility functions
-
-function __objToStr(o) {
-  return Object.prototype.toString.call(o);
-};
-clone.__objToStr = __objToStr;
-
-function __isDate(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object Date]';
-};
-clone.__isDate = __isDate;
-
-function __isArray(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object Array]';
-};
-clone.__isArray = __isArray;
-
-function __isRegExp(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object RegExp]';
-};
-clone.__isRegExp = __isRegExp;
-
-function __getRegExpFlags(re) {
-  var flags = '';
-  if (re.global) flags += 'g';
-  if (re.ignoreCase) flags += 'i';
-  if (re.multiline) flags += 'm';
-  return flags;
-};
-clone.__getRegExpFlags = __getRegExpFlags;
-
-return clone;
-})();
-
-if (typeof module === 'object' && module.exports) {
-  module.exports = clone;
-}
-
-}).call(this,require("buffer").Buffer)
-},{"buffer":3}],57:[function(require,module,exports){
+},{"big-rat/div":21,"big-rat/mul":31,"big-rat/sign":32,"big-rat/sub":33,"rat-vec/add":190,"rat-vec/muls":192,"rat-vec/sub":193}],55:[function(require,module,exports){
 module.exports={
 	"jet":[{"index":0,"rgb":[0,0,131]},{"index":0.125,"rgb":[0,60,170]},{"index":0.375,"rgb":[5,255,255]},{"index":0.625,"rgb":[255,255,0]},{"index":0.875,"rgb":[250,0,0]},{"index":1,"rgb":[128,0,0]}],
 
@@ -11611,7 +11342,7 @@ module.exports={
 
 	"electric":[{"index":0,"rgb":[0,0,0]},{"index":0.15,"rgb":[30,0,100]},{"index":0.4,"rgb":[120,0,100]},{"index":0.6,"rgb":[160,90,0]},{"index":0.8,"rgb":[230,200,0]},{"index":1,"rgb":[255,250,220]}],
 
-	"alpha": [{"index":0, "rgb": [255,255,255,0]},{"index":0, "rgb": [255,255,255,1]}],
+	"alpha": [{"index":0, "rgb": [255,255,255,0]},{"index":1, "rgb": [255,255,255,1]}],
 
 	"viridis": [{"index":0,"rgb":[68,1,84]},{"index":0.13,"rgb":[71,44,122]},{"index":0.25,"rgb":[59,81,139]},{"index":0.38,"rgb":[44,113,142]},{"index":0.5,"rgb":[33,144,141]},{"index":0.63,"rgb":[39,173,129]},{"index":0.75,"rgb":[92,200,99]},{"index":0.88,"rgb":[170,220,50]},{"index":1,"rgb":[253,231,37]}],
 
@@ -11658,7 +11389,7 @@ module.exports={
 	"cubehelix": [{"index":0,"rgb":[0,0,0]},{"index":0.07,"rgb":[22,5,59]},{"index":0.13,"rgb":[60,4,105]},{"index":0.2,"rgb":[109,1,135]},{"index":0.27,"rgb":[161,0,147]},{"index":0.33,"rgb":[210,2,142]},{"index":0.4,"rgb":[251,11,123]},{"index":0.47,"rgb":[255,29,97]},{"index":0.53,"rgb":[255,54,69]},{"index":0.6,"rgb":[255,85,46]},{"index":0.67,"rgb":[255,120,34]},{"index":0.73,"rgb":[255,157,37]},{"index":0.8,"rgb":[241,191,57]},{"index":0.87,"rgb":[224,220,93]},{"index":0.93,"rgb":[218,241,142]},{"index":1,"rgb":[227,253,198]}]
 };
 
-},{}],58:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 /*
  * Ben Postlethwaite
  * January 2013
@@ -11666,9 +11397,8 @@ module.exports={
  */
 'use strict';
 
-var at = require('arraytools');
-var clone = require('clone');
-var colorScale = require('./colorScales');
+var colorScale = require('./colorScale');
+var lerp = require('lerp')
 
 module.exports = createColormap;
 
@@ -11684,9 +11414,9 @@ function createColormap (spec) {
         b = [],
         a = [];
 
-    if ( !at.isPlainObject(spec) ) spec = {};
+    if ( !spec ) spec = {};
 
-    nshades = spec.nshades || 72;
+    nshades = (spec.nshades || 72) - 1;
     format = spec.format || 'hex';
 
     colormap = spec.colormap;
@@ -11699,10 +11429,10 @@ function createColormap (spec) {
             throw Error(colormap + ' not a supported colorscale');
         }
 
-        cmap = clone(colorScale[colormap]);
+        cmap = colorScale[colormap];
 
     } else if (Array.isArray(colormap)) {
-        cmap = clone(colormap);
+        cmap = colormap.slice();
 
     } else {
         throw Error('unsupported colormap option', colormap);
@@ -11727,59 +11457,72 @@ function createColormap (spec) {
         alpha = [1, 1];
 
     } else {
-        alpha = clone(spec.alpha);
+        alpha = spec.alpha.slice();
     }
 
-    /*
-     * map index points from 0->1 to 0 -> n-1
-     */
+    // map index points from 0..1 to 0..n-1
     indicies = cmap.map(function(c) {
         return Math.round(c.index * nshades);
     });
 
-    /*
-     * Add alpha channel to the map
-     */
-    if (alpha[0] < 0) alpha[0] = 0;
-    if (alpha[1] < 0) alpha[0] = 0;
-    if (alpha[0] > 1) alpha[0] = 1;
-    if (alpha[1] > 1) alpha[0] = 1;
+    // Add alpha channel to the map
+    alpha[0] = Math.min(Math.max(alpha[0], 0), 1);
+    alpha[1] = Math.min(Math.max(alpha[1], 0), 1);
 
-    for (i = 0; i < indicies.length; ++i) {
-        index = cmap[i].index;
-        rgba = cmap[i].rgb;
+    var steps = cmap.map(function(c, i) {
+        var index = cmap[i].index
+
+        var rgba = cmap[i].rgb.slice();
 
         // if user supplies their own map use it
-        if (rgba.length === 4 && rgba[3] >= 0 && rgba[3] <= 1) continue;
+        if (rgba.length === 4 && rgba[3] >= 0 && rgba[3] <= 1) {
+            return rgba
+        }
         rgba[3] = alpha[0] + (alpha[1] - alpha[0])*index;
-    }
+
+        return rgba
+    })
+
 
     /*
      * map increasing linear values between indicies to
      * linear steps in colorvalues
      */
+    var colors = []
     for (i = 0; i < indicies.length-1; ++i) {
         nsteps = indicies[i+1] - indicies[i];
-        fromrgba = cmap[i].rgb;
-        torgba = cmap[i+1].rgb;
-        r = r.concat(at.linspace(fromrgba[0], torgba[0], nsteps ) );
-        g = g.concat(at.linspace(fromrgba[1], torgba[1], nsteps ) );
-        b = b.concat(at.linspace(fromrgba[2], torgba[2], nsteps ) );
-        a = a.concat(at.linspace(fromrgba[3], torgba[3], nsteps ) );
+        fromrgba = steps[i];
+        torgba = steps[i+1];
+
+        for (var j = 0; j < nsteps; j++) {
+            var amt = j / nsteps
+            colors.push([
+                Math.round(lerp(fromrgba[0], torgba[0], amt)),
+                Math.round(lerp(fromrgba[1], torgba[1], amt)),
+                Math.round(lerp(fromrgba[2], torgba[2], amt)),
+                lerp(fromrgba[3], torgba[3], amt)
+            ])
+        }
     }
 
-    r = r.map( Math.round );
-    g = g.map( Math.round );
-    b = b.map( Math.round );
-
-    colors = at.zip(r, g, b, a);
+    //add 1 step as last value
+    colors.push(cmap[cmap.length - 1].rgb.concat(alpha[1]))
 
     if (format === 'hex') colors = colors.map( rgb2hex );
-    if (format === 'rgbaString') colors = colors.map( rgbaStr );
+    else if (format === 'rgbaString') colors = colors.map( rgbaStr );
+    else if (format === 'float') colors = colors.map( rgb2float );
 
     return colors;
 };
 
+function rgb2float (rgba) {
+    return [
+        rgba[0] / 255,
+        rgba[1] / 255,
+        rgba[2] / 255,
+        rgba[3]
+    ]
+}
 
 function rgb2hex (rgba) {
     var dig, hex = '#';
@@ -11795,7 +11538,7 @@ function rgbaStr (rgba) {
     return 'rgba(' + rgba.join(',') + ')';
 }
 
-},{"./colorScales":57,"arraytools":17,"clone":56}],59:[function(require,module,exports){
+},{"./colorScale":55,"lerp":159}],57:[function(require,module,exports){
 "use strict"
 
 module.exports = compareAngle
@@ -11881,7 +11624,7 @@ function compareAngle(a, b, c, d) {
     }
   }
 }
-},{"robust-orientation":201,"robust-product":202,"robust-sum":206,"signum":60,"two-sum":223}],60:[function(require,module,exports){
+},{"robust-orientation":201,"robust-product":202,"robust-sum":206,"signum":58,"two-sum":222}],58:[function(require,module,exports){
 "use strict"
 
 module.exports = function signum(x) {
@@ -11889,7 +11632,7 @@ module.exports = function signum(x) {
   if(x > 0) { return 1 }
   return 0.0
 }
-},{}],61:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 "use strict"
 
 var convexHull1d = require('./lib/ch1d')
@@ -11915,7 +11658,7 @@ function convexHull(points) {
   }
   return convexHullnd(points, d)
 }
-},{"./lib/ch1d":62,"./lib/ch2d":63,"./lib/chnd":64}],62:[function(require,module,exports){
+},{"./lib/ch1d":60,"./lib/ch2d":61,"./lib/chnd":62}],60:[function(require,module,exports){
 "use strict"
 
 module.exports = convexHull1d
@@ -11939,7 +11682,7 @@ function convexHull1d(points) {
     return [[lo]]
   }
 }
-},{}],63:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 'use strict'
 
 module.exports = convexHull2D
@@ -11962,7 +11705,7 @@ function convexHull2D(points) {
   return edges
 }
 
-},{"monotone-convex-hull-2d":166}],64:[function(require,module,exports){
+},{"monotone-convex-hull-2d":166}],62:[function(require,module,exports){
 'use strict'
 
 module.exports = convexHullnD
@@ -12023,7 +11766,7 @@ function convexHullnD(points, d) {
     return invPermute(nhull, ah)
   }
 }
-},{"affine-hull":16,"incremental-convex-hull":155}],65:[function(require,module,exports){
+},{"affine-hull":16,"incremental-convex-hull":153}],63:[function(require,module,exports){
 "use strict"
 
 function dcubicHermite(p0, v0, p1, v1, t, f) {
@@ -12063,7 +11806,7 @@ function cubicHermite(p0, v0, p1, v1, t, f) {
 
 module.exports = cubicHermite
 module.exports.derivative = dcubicHermite
-},{}],66:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 "use strict"
 
 var createThunk = require("./lib/thunk.js")
@@ -12174,7 +11917,7 @@ function compileCwise(user_args) {
 
 module.exports = compileCwise
 
-},{"./lib/thunk.js":68}],67:[function(require,module,exports){
+},{"./lib/thunk.js":66}],65:[function(require,module,exports){
 "use strict"
 
 var uniq = require("uniq")
@@ -12534,7 +12277,7 @@ function generateCWiseOp(proc, typesig) {
 }
 module.exports = generateCWiseOp
 
-},{"uniq":226}],68:[function(require,module,exports){
+},{"uniq":225}],66:[function(require,module,exports){
 "use strict"
 
 // The function below is called when constructing a cwise function object, and does the following:
@@ -12622,9 +12365,9 @@ function createThunk(proc) {
 
 module.exports = createThunk
 
-},{"./compile.js":67}],69:[function(require,module,exports){
+},{"./compile.js":65}],67:[function(require,module,exports){
 module.exports = require("cwise-compiler")
-},{"cwise-compiler":66}],70:[function(require,module,exports){
+},{"cwise-compiler":64}],68:[function(require,module,exports){
 (function (Buffer){
 var hasTypedArrays = false
 if(typeof Float64Array !== "undefined") {
@@ -12728,7 +12471,7 @@ module.exports.denormalized = function(n) {
   return !(hi & 0x7ff00000)
 }
 }).call(this,require("buffer").Buffer)
-},{"buffer":3}],71:[function(require,module,exports){
+},{"buffer":3}],69:[function(require,module,exports){
 "use strict"
 
 function dupe_array(count, value, i) {
@@ -12778,7 +12521,7 @@ function dupe(count, value) {
 }
 
 module.exports = dupe
-},{}],72:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 "use strict"
 
 module.exports = edgeToAdjacency
@@ -12812,7 +12555,7 @@ function edgeToAdjacency(edges, numVertices) {
   }
   return adj
 }
-},{"uniq":226}],73:[function(require,module,exports){
+},{"uniq":225}],71:[function(require,module,exports){
 module.exports = getSize
 
 function getSize(element) {
@@ -12848,7 +12591,7 @@ function parse(prop) {
   return parseFloat(prop) || 0
 }
 
-},{}],74:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 'use strict'
 
 module.exports = createFilteredVector
@@ -13141,7 +12884,7 @@ function createFilteredVector(initState, initVelocity, initTime) {
   }
 }
 
-},{"binary-search-bounds":36,"cubic-hermite":65}],75:[function(require,module,exports){
+},{"binary-search-bounds":35,"cubic-hermite":63}],73:[function(require,module,exports){
 "use strict"
 
 module.exports = createRBTree
@@ -14138,7 +13881,7 @@ function defaultCompare(a, b) {
 function createRBTree(compare) {
   return new RedBlackTree(compare || defaultCompare, null)
 }
-},{}],76:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 // transliterated from the python snippet here:
 // http://en.wikipedia.org/wiki/Lanczos_approximation
 
@@ -14207,7 +13950,7 @@ module.exports = function gamma (z) {
 
 module.exports.log = lngamma;
 
-},{}],77:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 'use strict'
 
 module.exports = createAxes
@@ -14730,7 +14473,7 @@ function createAxes(gl, options) {
   return axes
 }
 
-},{"./lib/background.js":78,"./lib/cube.js":79,"./lib/lines.js":80,"./lib/text.js":82,"./lib/ticks.js":83}],78:[function(require,module,exports){
+},{"./lib/background.js":76,"./lib/cube.js":77,"./lib/lines.js":78,"./lib/text.js":80,"./lib/ticks.js":81}],76:[function(require,module,exports){
 'use strict'
 
 module.exports = createBackgroundCube
@@ -14842,7 +14585,7 @@ function createBackgroundCube(gl) {
   return new BackgroundCube(gl, buffer, vao, shader)
 }
 
-},{"./shaders":81,"gl-buffer":84,"gl-vao":141}],79:[function(require,module,exports){
+},{"./shaders":79,"gl-buffer":82,"gl-vao":139}],77:[function(require,module,exports){
 "use strict"
 
 module.exports = getCubeEdges
@@ -15083,7 +14826,7 @@ function getCubeEdges(model, view, projection, bounds) {
   //Return result
   return CUBE_RESULT
 }
-},{"bit-twiddle":37,"gl-mat4/invert":99,"gl-mat4/multiply":101,"robust-orientation":201,"split-polygon":216}],80:[function(require,module,exports){
+},{"bit-twiddle":36,"gl-mat4/invert":97,"gl-mat4/multiply":99,"robust-orientation":201,"split-polygon":215}],78:[function(require,module,exports){
 'use strict'
 
 module.exports    = createLines
@@ -15289,7 +15032,7 @@ function createLines(gl, bounds, ticks) {
   return new Lines(gl, vertBuf, vao, shader, tickCount, tickOffset, gridCount, gridOffset)
 }
 
-},{"./shaders":81,"gl-buffer":84,"gl-vao":141}],81:[function(require,module,exports){
+},{"./shaders":79,"gl-buffer":82,"gl-vao":139}],79:[function(require,module,exports){
 'use strict'
 
 
@@ -15320,7 +15063,7 @@ exports.bg = function(gl) {
   ])
 }
 
-},{"gl-shader":128}],82:[function(require,module,exports){
+},{"gl-shader":126}],80:[function(require,module,exports){
 (function (process){
 "use strict"
 
@@ -15522,7 +15265,7 @@ function createTextSprites(
 }
 
 }).call(this,require('_process'))
-},{"./shaders":81,"_process":5,"gl-buffer":84,"gl-vao":141,"vectorize-text":227}],83:[function(require,module,exports){
+},{"./shaders":79,"_process":5,"gl-buffer":82,"gl-vao":139,"vectorize-text":226}],81:[function(require,module,exports){
 'use strict'
 
 exports.create   = defaultTicks
@@ -15603,7 +15346,7 @@ function ticksEqual(ticksA, ticksB) {
   }
   return true
 }
-},{}],84:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -15757,7 +15500,7 @@ function createBuffer(gl, data, type, usage) {
 
 module.exports = createBuffer
 
-},{"ndarray":175,"ndarray-ops":172,"typedarray-pool":224}],85:[function(require,module,exports){
+},{"ndarray":175,"ndarray-ops":172,"typedarray-pool":223}],83:[function(require,module,exports){
 module.exports = {
   0: 'NONE',
   1: 'ONE',
@@ -16057,14 +15800,14 @@ module.exports = {
   37444: 'BROWSER_DEFAULT_WEBGL'
 }
 
-},{}],86:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 var gl10 = require('./1.0/numbers')
 
 module.exports = function lookupConstant (number) {
   return gl10[number]
 }
 
-},{"./1.0/numbers":85}],87:[function(require,module,exports){
+},{"./1.0/numbers":83}],85:[function(require,module,exports){
 'use strict'
 
 var createTexture = require('gl-texture2d')
@@ -16531,7 +16274,7 @@ function createFBO(gl, width, height, options) {
     WEBGL_draw_buffers)
 }
 
-},{"gl-texture2d":137}],88:[function(require,module,exports){
+},{"gl-texture2d":135}],86:[function(require,module,exports){
 
 var sprintf = require('sprintf-js').sprintf;
 var glConstants = require('gl-constants/lookup');
@@ -16558,7 +16301,7 @@ function formatCompilerError(errLog, src, type) {
 
     for (var i = 0; i < errorStrings.length; i++) {
         var errorString = errorStrings[i];
-        if (errorString === '') continue;
+        if (errorString === '' || errorString === "\0") continue;
         var lineNo = parseInt(errorString.split(':')[2]);
         if (isNaN(lineNo)) {
             throw new Error(sprintf('Could not parse error: %s', errorString));
@@ -16586,7 +16329,7 @@ function formatCompilerError(errLog, src, type) {
 }
 
 
-},{"add-line-numbers":15,"gl-constants/lookup":86,"glsl-shader-name":147,"sprintf-js":217}],89:[function(require,module,exports){
+},{"add-line-numbers":15,"gl-constants/lookup":84,"glsl-shader-name":145,"sprintf-js":216}],87:[function(require,module,exports){
 module.exports = adjoint;
 
 /**
@@ -16620,7 +16363,7 @@ function adjoint(out, a) {
     out[15] =  (a00 * (a11 * a22 - a12 * a21) - a10 * (a01 * a22 - a02 * a21) + a20 * (a01 * a12 - a02 * a11));
     return out;
 };
-},{}],90:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 module.exports = clone;
 
 /**
@@ -16649,7 +16392,7 @@ function clone(a) {
     out[15] = a[15];
     return out;
 };
-},{}],91:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 module.exports = copy;
 
 /**
@@ -16678,7 +16421,7 @@ function copy(out, a) {
     out[15] = a[15];
     return out;
 };
-},{}],92:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 module.exports = create;
 
 /**
@@ -16706,7 +16449,7 @@ function create() {
     out[15] = 1;
     return out;
 };
-},{}],93:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 module.exports = determinant;
 
 /**
@@ -16737,7 +16480,7 @@ function determinant(a) {
     // Calculate the determinant
     return b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
 };
-},{}],94:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 module.exports = fromQuat;
 
 /**
@@ -16785,7 +16528,7 @@ function fromQuat(out, q) {
 
     return out;
 };
-},{}],95:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 module.exports = fromRotationTranslation;
 
 /**
@@ -16839,7 +16582,7 @@ function fromRotationTranslation(out, q, v) {
     
     return out;
 };
-},{}],96:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 module.exports = frustum;
 
 /**
@@ -16876,7 +16619,7 @@ function frustum(out, left, right, bottom, top, near, far) {
     out[15] = 0;
     return out;
 };
-},{}],97:[function(require,module,exports){
+},{}],95:[function(require,module,exports){
 module.exports = identity;
 
 /**
@@ -16904,7 +16647,7 @@ function identity(out) {
     out[15] = 1;
     return out;
 };
-},{}],98:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 module.exports = {
   create: require('./create')
   , clone: require('./clone')
@@ -16930,7 +16673,7 @@ module.exports = {
   , lookAt: require('./lookAt')
   , str: require('./str')
 }
-},{"./adjoint":89,"./clone":90,"./copy":91,"./create":92,"./determinant":93,"./fromQuat":94,"./fromRotationTranslation":95,"./frustum":96,"./identity":97,"./invert":99,"./lookAt":100,"./multiply":101,"./ortho":102,"./perspective":103,"./perspectiveFromFieldOfView":104,"./rotate":105,"./rotateX":106,"./rotateY":107,"./rotateZ":108,"./scale":109,"./str":110,"./translate":111,"./transpose":112}],99:[function(require,module,exports){
+},{"./adjoint":87,"./clone":88,"./copy":89,"./create":90,"./determinant":91,"./fromQuat":92,"./fromRotationTranslation":93,"./frustum":94,"./identity":95,"./invert":97,"./lookAt":98,"./multiply":99,"./ortho":100,"./perspective":101,"./perspectiveFromFieldOfView":102,"./rotate":103,"./rotateX":104,"./rotateY":105,"./rotateZ":106,"./scale":107,"./str":108,"./translate":109,"./transpose":110}],97:[function(require,module,exports){
 module.exports = invert;
 
 /**
@@ -16986,7 +16729,7 @@ function invert(out, a) {
 
     return out;
 };
-},{}],100:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 var identity = require('./identity');
 
 module.exports = lookAt;
@@ -17077,7 +16820,7 @@ function lookAt(out, eye, center, up) {
 
     return out;
 };
-},{"./identity":97}],101:[function(require,module,exports){
+},{"./identity":95}],99:[function(require,module,exports){
 module.exports = multiply;
 
 /**
@@ -17120,7 +16863,7 @@ function multiply(out, a, b) {
     out[15] = b0*a03 + b1*a13 + b2*a23 + b3*a33;
     return out;
 };
-},{}],102:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 module.exports = ortho;
 
 /**
@@ -17157,7 +16900,7 @@ function ortho(out, left, right, bottom, top, near, far) {
     out[15] = 1;
     return out;
 };
-},{}],103:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 module.exports = perspective;
 
 /**
@@ -17191,7 +16934,7 @@ function perspective(out, fovy, aspect, near, far) {
     out[15] = 0;
     return out;
 };
-},{}],104:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 module.exports = perspectiveFromFieldOfView;
 
 /**
@@ -17233,7 +16976,7 @@ function perspectiveFromFieldOfView(out, fov, near, far) {
 }
 
 
-},{}],105:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 module.exports = rotate;
 
 /**
@@ -17298,7 +17041,7 @@ function rotate(out, a, rad, axis) {
     }
     return out;
 };
-},{}],106:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 module.exports = rotateX;
 
 /**
@@ -17343,7 +17086,7 @@ function rotateX(out, a, rad) {
     out[11] = a23 * c - a13 * s;
     return out;
 };
-},{}],107:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 module.exports = rotateY;
 
 /**
@@ -17388,7 +17131,7 @@ function rotateY(out, a, rad) {
     out[11] = a03 * s + a23 * c;
     return out;
 };
-},{}],108:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 module.exports = rotateZ;
 
 /**
@@ -17433,7 +17176,7 @@ function rotateZ(out, a, rad) {
     out[7] = a13 * c - a03 * s;
     return out;
 };
-},{}],109:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 module.exports = scale;
 
 /**
@@ -17465,7 +17208,7 @@ function scale(out, a, v) {
     out[15] = a[15];
     return out;
 };
-},{}],110:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 module.exports = str;
 
 /**
@@ -17480,7 +17223,7 @@ function str(a) {
                     a[8] + ', ' + a[9] + ', ' + a[10] + ', ' + a[11] + ', ' + 
                     a[12] + ', ' + a[13] + ', ' + a[14] + ', ' + a[15] + ')';
 };
-},{}],111:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 module.exports = translate;
 
 /**
@@ -17519,7 +17262,7 @@ function translate(out, a, v) {
 
     return out;
 };
-},{}],112:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 module.exports = transpose;
 
 /**
@@ -17569,105 +17312,9 @@ function transpose(out, a) {
     
     return out;
 };
-},{}],113:[function(require,module,exports){
-'use strict'
-
-var barycentric            = require('barycentric')
-var closestPointToTriangle = require('polytope-closest-point/lib/closest_point_2d.js')
-
-module.exports = closestPointToPickLocation
-
-function xformMatrix(m, v) {
-  var out = [0,0,0,0]
-  for(var i=0; i<4; ++i) {
-    for(var j=0; j<4; ++j) {
-      out[j] += m[4*i + j] * v[i]
-    }
-  }
-  return out
-}
-
-function projectVertex(v, model, view, projection, resolution) {
-  var p = xformMatrix(projection,
-            xformMatrix(view,
-              xformMatrix(model, [v[0], v[1], v[2], 1])))
-  for(var i=0; i<3; ++i) {
-    p[i] /= p[3]
-  }
-  return [ 0.5 * resolution[0] * (1.0+p[0]), 0.5 * resolution[1] * (1.0-p[1]) ]
-}
-
-function barycentricCoord(simplex, point) {
-  if(simplex.length === 2) {
-    var d0 = 0.0
-    var d1 = 0.0
-    for(var i=0; i<2; ++i) {
-      d0 += Math.pow(point[i] - simplex[0][i], 2)
-      d1 += Math.pow(point[i] - simplex[1][i], 2)
-    }
-    d0 = Math.sqrt(d0)
-    d1 = Math.sqrt(d1)
-    if(d0+d1 < 1e-6) {
-      return [1,0]
-    }
-    return [d1/(d0+d1),d0/(d1+d0)]
-  } else if(simplex.length === 3) {
-    var closestPoint = [0,0]
-    closestPointToTriangle(simplex[0], simplex[1], simplex[2], point, closestPoint)
-    return barycentric(simplex, closestPoint)
-  }
-  return []
-}
-
-function interpolate(simplex, weights) {
-  var result = [0,0,0]
-  for(var i=0; i<simplex.length; ++i) {
-    var p = simplex[i]
-    var w = weights[i]
-    for(var j=0; j<3; ++j) {
-      result[j] += w * p[j]
-    }
-  }
-  return result
-}
-
-function closestPointToPickLocation(simplex, pixelCoord, model, view, projection, resolution) {
-  if(simplex.length === 1) {
-    return [0, simplex[0].slice()]
-  }
-  var simplex2D = new Array(simplex.length)
-  for(var i=0; i<simplex.length; ++i) {
-    simplex2D[i] = projectVertex(simplex[i], model, view, projection, resolution);
-  }
-
-  var closestIndex = 0
-  var closestDist  = Infinity
-  for(var i=0; i<simplex2D.length; ++i) {
-    var d2 = 0.0
-    for(var j=0; j<2; ++j) {
-      d2 += Math.pow(simplex2D[i][j] - pixelCoord[j], 2)
-    }
-    if(d2 < closestDist) {
-      closestDist  = d2
-      closestIndex = i
-    }
-  }
-
-  var weights = barycentricCoord(simplex2D, pixelCoord)
-  var s = 0.0
-  for(var i=0; i<3; ++i) {
-    if(weights[i] < -0.001 ||
-       weights[i] > 1.0001) {
-      return null
-    }
-    s += weights[i]
-  }
-  if(Math.abs(s - 1.0) > 0.001) {
-    return null
-  }
-  return [closestIndex, interpolate(simplex, weights), weights]
-}
-},{"barycentric":19,"polytope-closest-point/lib/closest_point_2d.js":188}],114:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"barycentric":18,"dup":9,"polytope-closest-point/lib/closest_point_2d.js":188}],112:[function(require,module,exports){
 
 
 var triVertSrc = "precision mediump float;\n#define GLSLIFY 1\n\nattribute vec3 position, normal;\nattribute vec4 color;\nattribute vec2 uv;\n\nuniform mat4 model\n           , view\n           , projection;\nuniform vec3 eyePosition\n           , lightPosition;\n\nvarying vec3 f_normal\n           , f_lightDirection\n           , f_eyeDirection\n           , f_data;\nvarying vec4 f_color;\nvarying vec2 f_uv;\n\nvoid main() {\n  vec4 m_position  = model * vec4(position, 1.0);\n  vec4 t_position  = view * m_position;\n  gl_Position      = projection * t_position;\n  f_color          = color;\n  f_normal         = normal;\n  f_data           = position;\n  f_eyeDirection   = eyePosition   - position;\n  f_lightDirection = lightPosition - position;\n  f_uv             = uv;\n}"
@@ -17736,7 +17383,7 @@ exports.contourShader = {
   ]
 }
 
-},{}],115:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 'use strict'
 
 var DEFAULT_VERTEX_NORMALS_EPSILON = 1e-6; // may be too large if triangles are very small
@@ -18759,7 +18406,7 @@ function createSimplicialMesh(gl, params) {
 
 module.exports = createSimplicialMesh
 
-},{"./lib/closest-point":113,"./lib/shaders":114,"colormap":58,"gl-buffer":84,"gl-mat4/invert":99,"gl-mat4/multiply":101,"gl-shader":116,"gl-texture2d":137,"gl-vao":141,"ndarray":175,"normals":177,"simplicial-complex-contour":207,"typedarray-pool":224}],116:[function(require,module,exports){
+},{"./lib/closest-point":111,"./lib/shaders":112,"colormap":56,"gl-buffer":82,"gl-mat4/invert":97,"gl-mat4/multiply":99,"gl-shader":114,"gl-texture2d":135,"gl-vao":139,"ndarray":175,"normals":177,"simplicial-complex-contour":207,"typedarray-pool":223}],114:[function(require,module,exports){
 'use strict'
 
 var createUniformWrapper   = require('./lib/create-uniforms')
@@ -18995,7 +18642,7 @@ function createShader(
 
 module.exports = createShader
 
-},{"./lib/GLError":117,"./lib/create-attributes":118,"./lib/create-uniforms":119,"./lib/reflect":120,"./lib/runtime-reflect":121,"./lib/shader-cache":122}],117:[function(require,module,exports){
+},{"./lib/GLError":115,"./lib/create-attributes":116,"./lib/create-uniforms":117,"./lib/reflect":118,"./lib/runtime-reflect":119,"./lib/shader-cache":120}],115:[function(require,module,exports){
 function GLError (rawError, shortMessage, longMessage) {
     this.shortMessage = shortMessage || ''
     this.longMessage = longMessage || ''
@@ -19010,7 +18657,7 @@ GLError.prototype.name = 'GLError'
 GLError.prototype.constructor = GLError
 module.exports = GLError
 
-},{}],118:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 'use strict'
 
 module.exports = createAttributeWrapper
@@ -19275,7 +18922,7 @@ function createAttributeWrapper(
   return obj
 }
 
-},{"./GLError":117}],119:[function(require,module,exports){
+},{"./GLError":115}],117:[function(require,module,exports){
 'use strict'
 
 var coallesceUniforms = require('./reflect')
@@ -19468,7 +19115,7 @@ function createUniformWrapper(gl, wrapper, uniforms, locations) {
   }
 }
 
-},{"./GLError":117,"./reflect":120}],120:[function(require,module,exports){
+},{"./GLError":115,"./reflect":118}],118:[function(require,module,exports){
 'use strict'
 
 module.exports = makeReflectTypes
@@ -19526,7 +19173,7 @@ function makeReflectTypes(uniforms, useIndex) {
   }
   return obj
 }
-},{}],121:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 'use strict'
 
 exports.uniforms    = runtimeUniforms
@@ -19606,7 +19253,7 @@ function runtimeAttributes(gl, program) {
   return result
 }
 
-},{}],122:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 'use strict'
 
 exports.shader   = getShaderReference
@@ -19744,7 +19391,7 @@ function createProgram(gl, vref, fref, attribs, locations) {
   return getCache(gl).getProgram(vref, fref, attribs, locations)
 }
 
-},{"./GLError":117,"gl-format-compiler-error":88,"weakmap-shim":231}],123:[function(require,module,exports){
+},{"./GLError":115,"gl-format-compiler-error":86,"weakmap-shim":230}],121:[function(require,module,exports){
 module.exports = slerp
 
 /**
@@ -19797,7 +19444,7 @@ function slerp (out, a, b, t) {
   return out
 }
 
-},{}],124:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 "use strict"
 
 var vectorizeText = require("vectorize-text")
@@ -19843,7 +19490,7 @@ function getGlyph(symbol, font) {
   //Save cached symbol
   return fontCache[symbol] = [triSymbol, lineSymbol, bounds]
 }
-},{"vectorize-text":227}],125:[function(require,module,exports){
+},{"vectorize-text":226}],123:[function(require,module,exports){
 var createShaderWrapper = require('gl-shader')
 
 
@@ -19920,7 +19567,7 @@ exports.createPickProject = function(gl) {
   return createShader(gl, pickProject)
 }
 
-},{"gl-shader":128}],126:[function(require,module,exports){
+},{"gl-shader":126}],124:[function(require,module,exports){
 'use strict'
 
 var createBuffer  = require('gl-buffer')
@@ -20680,7 +20327,7 @@ function createPointCloud(options) {
   return pointCloud
 }
 
-},{"./lib/glyphs":124,"./lib/shaders":125,"gl-buffer":84,"gl-mat4/multiply":101,"gl-vao":141,"typedarray-pool":224}],127:[function(require,module,exports){
+},{"./lib/glyphs":122,"./lib/shaders":123,"gl-buffer":82,"gl-mat4/multiply":99,"gl-vao":139,"typedarray-pool":223}],125:[function(require,module,exports){
 'use strict'
 
 module.exports = createSelectBuffer
@@ -20835,21 +20482,21 @@ function createSelectBuffer(gl, shape) {
   return new SelectBuffer(gl, fbo, buffer)
 }
 
-},{"bit-twiddle":37,"cwise/lib/wrapper":69,"gl-fbo":87,"ndarray":175,"typedarray-pool":224}],128:[function(require,module,exports){
+},{"bit-twiddle":36,"cwise/lib/wrapper":67,"gl-fbo":85,"ndarray":175,"typedarray-pool":223}],126:[function(require,module,exports){
+arguments[4][114][0].apply(exports,arguments)
+},{"./lib/GLError":127,"./lib/create-attributes":128,"./lib/create-uniforms":129,"./lib/reflect":130,"./lib/runtime-reflect":131,"./lib/shader-cache":132,"dup":114}],127:[function(require,module,exports){
+arguments[4][115][0].apply(exports,arguments)
+},{"dup":115}],128:[function(require,module,exports){
 arguments[4][116][0].apply(exports,arguments)
-},{"./lib/GLError":129,"./lib/create-attributes":130,"./lib/create-uniforms":131,"./lib/reflect":132,"./lib/runtime-reflect":133,"./lib/shader-cache":134,"dup":116}],129:[function(require,module,exports){
+},{"./GLError":127,"dup":116}],129:[function(require,module,exports){
 arguments[4][117][0].apply(exports,arguments)
-},{"dup":117}],130:[function(require,module,exports){
+},{"./GLError":127,"./reflect":130,"dup":117}],130:[function(require,module,exports){
 arguments[4][118][0].apply(exports,arguments)
-},{"./GLError":129,"dup":118}],131:[function(require,module,exports){
+},{"dup":118}],131:[function(require,module,exports){
 arguments[4][119][0].apply(exports,arguments)
-},{"./GLError":129,"./reflect":132,"dup":119}],132:[function(require,module,exports){
+},{"dup":119}],132:[function(require,module,exports){
 arguments[4][120][0].apply(exports,arguments)
-},{"dup":120}],133:[function(require,module,exports){
-arguments[4][121][0].apply(exports,arguments)
-},{"dup":121}],134:[function(require,module,exports){
-arguments[4][122][0].apply(exports,arguments)
-},{"./GLError":129,"dup":122,"gl-format-compiler-error":88,"weakmap-shim":231}],135:[function(require,module,exports){
+},{"./GLError":127,"dup":120,"gl-format-compiler-error":86,"weakmap-shim":230}],133:[function(require,module,exports){
 'use strict'
 
 
@@ -20866,7 +20513,7 @@ module.exports = function(gl) {
   ])
 }
 
-},{"gl-shader":128}],136:[function(require,module,exports){
+},{"gl-shader":126}],134:[function(require,module,exports){
 'use strict'
 
 var createBuffer = require('gl-buffer')
@@ -21062,7 +20709,7 @@ function createSpikes(gl, options) {
   return spikes
 }
 
-},{"./shaders/index":135,"gl-buffer":84,"gl-vao":141}],137:[function(require,module,exports){
+},{"./shaders/index":133,"gl-buffer":82,"gl-vao":139}],135:[function(require,module,exports){
 'use strict'
 
 var ndarray = require('ndarray')
@@ -21625,7 +21272,7 @@ function createTexture2D(gl) {
   throw new Error('gl-texture2d: Invalid arguments for texture2d constructor')
 }
 
-},{"ndarray":175,"ndarray-ops":172,"typedarray-pool":224}],138:[function(require,module,exports){
+},{"ndarray":175,"ndarray-ops":172,"typedarray-pool":223}],136:[function(require,module,exports){
 "use strict"
 
 function doBind(gl, elements, attributes) {
@@ -21680,7 +21327,7 @@ function doBind(gl, elements, attributes) {
 }
 
 module.exports = doBind
-},{}],139:[function(require,module,exports){
+},{}],137:[function(require,module,exports){
 "use strict"
 
 var bindAttribs = require("./do-bind.js")
@@ -21720,7 +21367,7 @@ function createVAOEmulated(gl) {
 }
 
 module.exports = createVAOEmulated
-},{"./do-bind.js":138}],140:[function(require,module,exports){
+},{"./do-bind.js":136}],138:[function(require,module,exports){
 "use strict"
 
 var bindAttribs = require("./do-bind.js")
@@ -21808,7 +21455,7 @@ function createVAONative(gl, ext) {
 }
 
 module.exports = createVAONative
-},{"./do-bind.js":138}],141:[function(require,module,exports){
+},{"./do-bind.js":136}],139:[function(require,module,exports){
 "use strict"
 
 var createVAONative = require("./lib/vao-native.js")
@@ -21837,7 +21484,7 @@ function createVAO(gl, attributes, elements, elementsType) {
 
 module.exports = createVAO
 
-},{"./lib/vao-emulated.js":139,"./lib/vao-native.js":140}],142:[function(require,module,exports){
+},{"./lib/vao-emulated.js":137,"./lib/vao-native.js":138}],140:[function(require,module,exports){
 module.exports = cross;
 
 /**
@@ -21857,7 +21504,7 @@ function cross(out, a, b) {
     out[2] = ax * by - ay * bx
     return out
 }
-},{}],143:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 module.exports = dot;
 
 /**
@@ -21870,7 +21517,7 @@ module.exports = dot;
 function dot(a, b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
-},{}],144:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 module.exports = length;
 
 /**
@@ -21885,7 +21532,7 @@ function length(a) {
         z = a[2]
     return Math.sqrt(x*x + y*y + z*z)
 }
-},{}],145:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 module.exports = lerp;
 
 /**
@@ -21906,7 +21553,7 @@ function lerp(out, a, b, t) {
     out[2] = az + t * (b[2] - az)
     return out
 }
-},{}],146:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 module.exports = normalize;
 
 /**
@@ -21930,7 +21577,7 @@ function normalize(out, a) {
     }
     return out
 }
-},{}],147:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 var tokenize = require('glsl-tokenizer')
 var atob     = require('atob-lite')
 
@@ -21955,7 +21602,7 @@ function getName(src) {
   }
 }
 
-},{"atob-lite":18,"glsl-tokenizer":154}],148:[function(require,module,exports){
+},{"atob-lite":17,"glsl-tokenizer":152}],146:[function(require,module,exports){
 module.exports = tokenize
 
 var literals100 = require('./lib/literals')
@@ -22319,7 +21966,7 @@ function tokenize(opt) {
   }
 }
 
-},{"./lib/builtins":150,"./lib/builtins-300es":149,"./lib/literals":152,"./lib/literals-300es":151,"./lib/operators":153}],149:[function(require,module,exports){
+},{"./lib/builtins":148,"./lib/builtins-300es":147,"./lib/literals":150,"./lib/literals-300es":149,"./lib/operators":151}],147:[function(require,module,exports){
 // 300es builtins/reserved words that were previously valid in v100
 var v100 = require('./builtins')
 
@@ -22390,7 +22037,7 @@ module.exports = v100.concat([
   , 'textureProjGradOffset'
 ])
 
-},{"./builtins":150}],150:[function(require,module,exports){
+},{"./builtins":148}],148:[function(require,module,exports){
 module.exports = [
   // Keep this list sorted
   'abs'
@@ -22542,7 +22189,7 @@ module.exports = [
   , 'textureCubeGradEXT'
 ]
 
-},{}],151:[function(require,module,exports){
+},{}],149:[function(require,module,exports){
 var v100 = require('./literals')
 
 module.exports = v100.slice().concat([
@@ -22632,7 +22279,7 @@ module.exports = v100.slice().concat([
   , 'usampler2DMSArray'
 ])
 
-},{"./literals":152}],152:[function(require,module,exports){
+},{"./literals":150}],150:[function(require,module,exports){
 module.exports = [
   // current
     'precision'
@@ -22727,7 +22374,7 @@ module.exports = [
   , 'using'
 ]
 
-},{}],153:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 module.exports = [
     '<<='
   , '>>='
@@ -22776,7 +22423,7 @@ module.exports = [
   , '}'
 ]
 
-},{}],154:[function(require,module,exports){
+},{}],152:[function(require,module,exports){
 var tokenize = require('./index')
 
 module.exports = tokenizeString
@@ -22791,7 +22438,7 @@ function tokenizeString(str, opt) {
   return tokens
 }
 
-},{"./index":148}],155:[function(require,module,exports){
+},{"./index":146}],153:[function(require,module,exports){
 "use strict"
 
 //High level idea:
@@ -23238,7 +22885,351 @@ function incrementalConvexHull(points, randomSearch) {
   //Extract boundary cells
   return triangles.boundary()
 }
-},{"robust-orientation":201,"simplicial-complex":209}],156:[function(require,module,exports){
+},{"robust-orientation":201,"simplicial-complex":154}],154:[function(require,module,exports){
+"use strict"; "use restrict";
+
+var bits      = require("bit-twiddle")
+  , UnionFind = require("union-find")
+
+//Returns the dimension of a cell complex
+function dimension(cells) {
+  var d = 0
+    , max = Math.max
+  for(var i=0, il=cells.length; i<il; ++i) {
+    d = max(d, cells[i].length)
+  }
+  return d-1
+}
+exports.dimension = dimension
+
+//Counts the number of vertices in faces
+function countVertices(cells) {
+  var vc = -1
+    , max = Math.max
+  for(var i=0, il=cells.length; i<il; ++i) {
+    var c = cells[i]
+    for(var j=0, jl=c.length; j<jl; ++j) {
+      vc = max(vc, c[j])
+    }
+  }
+  return vc+1
+}
+exports.countVertices = countVertices
+
+//Returns a deep copy of cells
+function cloneCells(cells) {
+  var ncells = new Array(cells.length)
+  for(var i=0, il=cells.length; i<il; ++i) {
+    ncells[i] = cells[i].slice(0)
+  }
+  return ncells
+}
+exports.cloneCells = cloneCells
+
+//Ranks a pair of cells up to permutation
+function compareCells(a, b) {
+  var n = a.length
+    , t = a.length - b.length
+    , min = Math.min
+  if(t) {
+    return t
+  }
+  switch(n) {
+    case 0:
+      return 0;
+    case 1:
+      return a[0] - b[0];
+    case 2:
+      var d = a[0]+a[1]-b[0]-b[1]
+      if(d) {
+        return d
+      }
+      return min(a[0],a[1]) - min(b[0],b[1])
+    case 3:
+      var l1 = a[0]+a[1]
+        , m1 = b[0]+b[1]
+      d = l1+a[2] - (m1+b[2])
+      if(d) {
+        return d
+      }
+      var l0 = min(a[0], a[1])
+        , m0 = min(b[0], b[1])
+        , d  = min(l0, a[2]) - min(m0, b[2])
+      if(d) {
+        return d
+      }
+      return min(l0+a[2], l1) - min(m0+b[2], m1)
+    
+    //TODO: Maybe optimize n=4 as well?
+    
+    default:
+      var as = a.slice(0)
+      as.sort()
+      var bs = b.slice(0)
+      bs.sort()
+      for(var i=0; i<n; ++i) {
+        t = as[i] - bs[i]
+        if(t) {
+          return t
+        }
+      }
+      return 0
+  }
+}
+exports.compareCells = compareCells
+
+function compareZipped(a, b) {
+  return compareCells(a[0], b[0])
+}
+
+//Puts a cell complex into normal order for the purposes of findCell queries
+function normalize(cells, attr) {
+  if(attr) {
+    var len = cells.length
+    var zipped = new Array(len)
+    for(var i=0; i<len; ++i) {
+      zipped[i] = [cells[i], attr[i]]
+    }
+    zipped.sort(compareZipped)
+    for(var i=0; i<len; ++i) {
+      cells[i] = zipped[i][0]
+      attr[i] = zipped[i][1]
+    }
+    return cells
+  } else {
+    cells.sort(compareCells)
+    return cells
+  }
+}
+exports.normalize = normalize
+
+//Removes all duplicate cells in the complex
+function unique(cells) {
+  if(cells.length === 0) {
+    return []
+  }
+  var ptr = 1
+    , len = cells.length
+  for(var i=1; i<len; ++i) {
+    var a = cells[i]
+    if(compareCells(a, cells[i-1])) {
+      if(i === ptr) {
+        ptr++
+        continue
+      }
+      cells[ptr++] = a
+    }
+  }
+  cells.length = ptr
+  return cells
+}
+exports.unique = unique;
+
+//Finds a cell in a normalized cell complex
+function findCell(cells, c) {
+  var lo = 0
+    , hi = cells.length-1
+    , r  = -1
+  while (lo <= hi) {
+    var mid = (lo + hi) >> 1
+      , s   = compareCells(cells[mid], c)
+    if(s <= 0) {
+      if(s === 0) {
+        r = mid
+      }
+      lo = mid + 1
+    } else if(s > 0) {
+      hi = mid - 1
+    }
+  }
+  return r
+}
+exports.findCell = findCell;
+
+//Builds an index for an n-cell.  This is more general than dual, but less efficient
+function incidence(from_cells, to_cells) {
+  var index = new Array(from_cells.length)
+  for(var i=0, il=index.length; i<il; ++i) {
+    index[i] = []
+  }
+  var b = []
+  for(var i=0, n=to_cells.length; i<n; ++i) {
+    var c = to_cells[i]
+    var cl = c.length
+    for(var k=1, kn=(1<<cl); k<kn; ++k) {
+      b.length = bits.popCount(k)
+      var l = 0
+      for(var j=0; j<cl; ++j) {
+        if(k & (1<<j)) {
+          b[l++] = c[j]
+        }
+      }
+      var idx=findCell(from_cells, b)
+      if(idx < 0) {
+        continue
+      }
+      while(true) {
+        index[idx++].push(i)
+        if(idx >= from_cells.length || compareCells(from_cells[idx], b) !== 0) {
+          break
+        }
+      }
+    }
+  }
+  return index
+}
+exports.incidence = incidence
+
+//Computes the dual of the mesh.  This is basically an optimized version of buildIndex for the situation where from_cells is just the list of vertices
+function dual(cells, vertex_count) {
+  if(!vertex_count) {
+    return incidence(unique(skeleton(cells, 0)), cells, 0)
+  }
+  var res = new Array(vertex_count)
+  for(var i=0; i<vertex_count; ++i) {
+    res[i] = []
+  }
+  for(var i=0, len=cells.length; i<len; ++i) {
+    var c = cells[i]
+    for(var j=0, cl=c.length; j<cl; ++j) {
+      res[c[j]].push(i)
+    }
+  }
+  return res
+}
+exports.dual = dual
+
+//Enumerates all cells in the complex
+function explode(cells) {
+  var result = []
+  for(var i=0, il=cells.length; i<il; ++i) {
+    var c = cells[i]
+      , cl = c.length|0
+    for(var j=1, jl=(1<<cl); j<jl; ++j) {
+      var b = []
+      for(var k=0; k<cl; ++k) {
+        if((j >>> k) & 1) {
+          b.push(c[k])
+        }
+      }
+      result.push(b)
+    }
+  }
+  return normalize(result)
+}
+exports.explode = explode
+
+//Enumerates all of the n-cells of a cell complex
+function skeleton(cells, n) {
+  if(n < 0) {
+    return []
+  }
+  var result = []
+    , k0     = (1<<(n+1))-1
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var k=k0; k<(1<<c.length); k=bits.nextCombination(k)) {
+      var b = new Array(n+1)
+        , l = 0
+      for(var j=0; j<c.length; ++j) {
+        if(k & (1<<j)) {
+          b[l++] = c[j]
+        }
+      }
+      result.push(b)
+    }
+  }
+  return normalize(result)
+}
+exports.skeleton = skeleton;
+
+//Computes the boundary of all cells, does not remove duplicates
+function boundary(cells) {
+  var res = []
+  for(var i=0,il=cells.length; i<il; ++i) {
+    var c = cells[i]
+    for(var j=0,cl=c.length; j<cl; ++j) {
+      var b = new Array(c.length-1)
+      for(var k=0, l=0; k<cl; ++k) {
+        if(k !== j) {
+          b[l++] = c[k]
+        }
+      }
+      res.push(b)
+    }
+  }
+  return normalize(res)
+}
+exports.boundary = boundary;
+
+//Computes connected components for a dense cell complex
+function connectedComponents_dense(cells, vertex_count) {
+  var labels = new UnionFind(vertex_count)
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var j=0; j<c.length; ++j) {
+      for(var k=j+1; k<c.length; ++k) {
+        labels.link(c[j], c[k])
+      }
+    }
+  }
+  var components = []
+    , component_labels = labels.ranks
+  for(var i=0; i<component_labels.length; ++i) {
+    component_labels[i] = -1
+  }
+  for(var i=0; i<cells.length; ++i) {
+    var l = labels.find(cells[i][0])
+    if(component_labels[l] < 0) {
+      component_labels[l] = components.length
+      components.push([cells[i].slice(0)])
+    } else {
+      components[component_labels[l]].push(cells[i].slice(0))
+    }
+  }
+  return components
+}
+
+//Computes connected components for a sparse graph
+function connectedComponents_sparse(cells) {
+  var vertices  = unique(normalize(skeleton(cells, 0)))
+    , labels    = new UnionFind(vertices.length)
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var j=0; j<c.length; ++j) {
+      var vj = findCell(vertices, [c[j]])
+      for(var k=j+1; k<c.length; ++k) {
+        labels.link(vj, findCell(vertices, [c[k]]))
+      }
+    }
+  }
+  var components        = []
+    , component_labels  = labels.ranks
+  for(var i=0; i<component_labels.length; ++i) {
+    component_labels[i] = -1
+  }
+  for(var i=0; i<cells.length; ++i) {
+    var l = labels.find(findCell(vertices, [cells[i][0]]));
+    if(component_labels[l] < 0) {
+      component_labels[l] = components.length
+      components.push([cells[i].slice(0)])
+    } else {
+      components[component_labels[l]].push(cells[i].slice(0))
+    }
+  }
+  return components
+}
+
+//Computes connected components for a cell complex
+function connectedComponents(cells, vertex_count) {
+  if(vertex_count) {
+    return connectedComponents_dense(cells, vertex_count)
+  }
+  return connectedComponents_sparse(cells)
+}
+exports.connectedComponents = connectedComponents
+
+},{"bit-twiddle":36,"union-find":224}],155:[function(require,module,exports){
 "use strict"
 
 var bounds = require("binary-search-bounds")
@@ -23605,7 +23596,7 @@ function createWrapper(intervals) {
   return new IntervalTree(createIntervalTree(intervals))
 }
 
-},{"binary-search-bounds":36}],157:[function(require,module,exports){
+},{"binary-search-bounds":35}],156:[function(require,module,exports){
 "use strict"
 
 function invertPermutation(pi, result) {
@@ -23617,7 +23608,7 @@ function invertPermutation(pi, result) {
 }
 
 module.exports = invertPermutation
-},{}],158:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 "use strict"
 
 function iota(n) {
@@ -23629,11 +23620,11 @@ function iota(n) {
 }
 
 module.exports = iota
-},{}],159:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
- * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * @author   Feross Aboukhadijeh <https://feross.org>
  * @license  MIT
  */
 
@@ -23652,6 +23643,11 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
+},{}],159:[function(require,module,exports){
+function lerp(v0, v1, t) {
+    return v0*(1-t)+v1*t
+}
+module.exports = lerp
 },{}],160:[function(require,module,exports){
 'use strict'
 
@@ -23718,7 +23714,7 @@ function createTable(dimension) {
   }
   return result
 }
-},{"convex-hull":61}],161:[function(require,module,exports){
+},{"convex-hull":59}],161:[function(require,module,exports){
 /*jshint unused:true*/
 /*
 Input:  matrix      ; a 4x4 matrix
@@ -23898,7 +23894,7 @@ function combine(out, a, b, scale1, scale2) {
     out[1] = a[1] * scale1 + b[1] * scale2
     out[2] = a[2] * scale1 + b[2] * scale2
 }
-},{"./normalize":162,"gl-mat4/clone":90,"gl-mat4/create":92,"gl-mat4/determinant":93,"gl-mat4/invert":99,"gl-mat4/transpose":112,"gl-vec3/cross":142,"gl-vec3/dot":143,"gl-vec3/length":144,"gl-vec3/normalize":146}],162:[function(require,module,exports){
+},{"./normalize":162,"gl-mat4/clone":88,"gl-mat4/create":90,"gl-mat4/determinant":91,"gl-mat4/invert":97,"gl-mat4/transpose":110,"gl-vec3/cross":140,"gl-vec3/dot":141,"gl-vec3/length":142,"gl-vec3/normalize":144}],162:[function(require,module,exports){
 module.exports = function normalize(out, mat) {
     var m44 = mat[15]
     // Cannot normalize.
@@ -23962,7 +23958,7 @@ function vec3(n) {
 function vec4() {
     return [0,0,0,1]
 }
-},{"gl-mat4/determinant":93,"gl-vec3/lerp":145,"mat4-decompose":161,"mat4-recompose":164,"quat-slerp":189}],164:[function(require,module,exports){
+},{"gl-mat4/determinant":91,"gl-vec3/lerp":143,"mat4-decompose":161,"mat4-recompose":164,"quat-slerp":189}],164:[function(require,module,exports){
 /*
 Input:  translation ; a 3 component vector
         scale       ; a 3 component vector
@@ -24023,7 +24019,7 @@ module.exports = function recomposeMat4(matrix, translation, scale, skew, perspe
     mat4.scale(matrix, matrix, scale)
     return matrix
 }
-},{"gl-mat4/create":92,"gl-mat4/fromRotationTranslation":95,"gl-mat4/identity":97,"gl-mat4/multiply":101,"gl-mat4/scale":109,"gl-mat4/translate":111}],165:[function(require,module,exports){
+},{"gl-mat4/create":90,"gl-mat4/fromRotationTranslation":93,"gl-mat4/identity":95,"gl-mat4/multiply":99,"gl-mat4/scale":107,"gl-mat4/translate":109}],165:[function(require,module,exports){
 'use strict'
 
 var bsearch   = require('binary-search-bounds')
@@ -24223,7 +24219,7 @@ function createMatrixCameraController(options) {
   return new MatrixCameraController(matrix)
 }
 
-},{"binary-search-bounds":36,"gl-mat4/invert":99,"gl-mat4/lookAt":100,"gl-mat4/rotateX":106,"gl-mat4/rotateY":107,"gl-mat4/rotateZ":108,"gl-mat4/scale":109,"gl-mat4/translate":111,"gl-vec3/normalize":146,"mat4-interpolate":163}],166:[function(require,module,exports){
+},{"binary-search-bounds":35,"gl-mat4/invert":97,"gl-mat4/lookAt":98,"gl-mat4/rotateX":104,"gl-mat4/rotateY":105,"gl-mat4/rotateZ":106,"gl-mat4/scale":107,"gl-mat4/translate":109,"gl-vec3/normalize":144,"mat4-interpolate":163}],166:[function(require,module,exports){
 'use strict'
 
 module.exports = monotoneConvexHull2D
@@ -24643,7 +24639,7 @@ function mouseWheelListen(element, callback, noScroll) {
   return listener
 }
 
-},{"to-px":219}],171:[function(require,module,exports){
+},{"to-px":218}],171:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -25059,7 +25055,7 @@ function createSurfaceExtractor(args) {
     order,
     typesig)
 }
-},{"typedarray-pool":224}],172:[function(require,module,exports){
+},{"typedarray-pool":223}],172:[function(require,module,exports){
 "use strict"
 
 var compile = require("cwise-compiler")
@@ -25522,7 +25518,7 @@ exports.equals = compile({
 
 
 
-},{"cwise-compiler":66}],173:[function(require,module,exports){
+},{"cwise-compiler":64}],173:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -26251,7 +26247,7 @@ function compileSort(order, dtype) {
 }
 
 module.exports = compileSort
-},{"typedarray-pool":224}],174:[function(require,module,exports){
+},{"typedarray-pool":223}],174:[function(require,module,exports){
 "use strict"
 
 var compile = require("./lib/compile_sort.js")
@@ -26616,7 +26612,7 @@ function wrappedNDArrayCtor(data, shape, stride, offset) {
 
 module.exports = wrappedNDArrayCtor
 
-},{"iota-array":158,"is-buffer":159}],176:[function(require,module,exports){
+},{"iota-array":157,"is-buffer":158}],176:[function(require,module,exports){
 "use strict"
 
 var doubleBits = require("double-bits")
@@ -26659,7 +26655,7 @@ function nextafter(x, y) {
   }
   return doubleBits.pack(lo, hi)
 }
-},{"double-bits":70}],177:[function(require,module,exports){
+},{"double-bits":68}],177:[function(require,module,exports){
 var DEFAULT_NORMALS_EPSILON = 1e-6;
 var DEFAULT_FACE_EPSILON = 1e-6;
 
@@ -27220,7 +27216,7 @@ function createOrbitController(options) {
 
   return result
 }
-},{"./lib/quatFromFrame":178,"filtered-vector":74,"gl-mat4/fromQuat":94,"gl-mat4/invert":99,"gl-mat4/lookAt":100}],180:[function(require,module,exports){
+},{"./lib/quatFromFrame":178,"filtered-vector":72,"gl-mat4/fromQuat":92,"gl-mat4/invert":97,"gl-mat4/lookAt":98}],180:[function(require,module,exports){
 /*!
  * pad-left <https://github.com/jonschlinkert/pad-left>
  *
@@ -27299,7 +27295,7 @@ function permutationSign(p) {
     return sgn
   }
 }
-},{"typedarray-pool":224}],183:[function(require,module,exports){
+},{"typedarray-pool":223}],183:[function(require,module,exports){
 "use strict"
 
 var pool = require("typedarray-pool")
@@ -27386,7 +27382,7 @@ function unrank(n, r, p) {
 exports.rank = rank
 exports.unrank = unrank
 
-},{"invert-permutation":157,"typedarray-pool":224}],184:[function(require,module,exports){
+},{"invert-permutation":156,"typedarray-pool":223}],184:[function(require,module,exports){
 "use strict"
 
 module.exports = planarDual
@@ -27517,7 +27513,7 @@ function planarDual(cells, positions) {
   //Combine paths and loops together
   return cycles
 }
-},{"compare-angle":59}],185:[function(require,module,exports){
+},{"compare-angle":57}],185:[function(require,module,exports){
 'use strict'
 
 module.exports = trimLeaves
@@ -27573,7 +27569,7 @@ function trimLeaves(edges, positions) {
   
   return [ nedges, npositions ]
 }
-},{"edges-to-adjacency-list":72}],186:[function(require,module,exports){
+},{"edges-to-adjacency-list":70}],186:[function(require,module,exports){
 'use strict'
 
 module.exports = planarGraphToPolyline
@@ -27778,7 +27774,7 @@ function planarGraphToPolyline(edges, positions) {
 
   return result
 }
-},{"./lib/trim-leaves":185,"edges-to-adjacency-list":72,"planar-dual":184,"point-in-big-polygon":187,"robust-sum":206,"two-product":222,"uniq":226}],187:[function(require,module,exports){
+},{"./lib/trim-leaves":185,"edges-to-adjacency-list":70,"planar-dual":184,"point-in-big-polygon":187,"robust-sum":206,"two-product":221,"uniq":225}],187:[function(require,module,exports){
 module.exports = preprocessPolygon
 
 var orient = require('robust-orientation')[3]
@@ -27930,7 +27926,7 @@ function preprocessPolygon(loops) {
       testSlab)
   }
 }
-},{"binary-search-bounds":36,"interval-tree-1d":156,"robust-orientation":201,"slab-decomposition":215}],188:[function(require,module,exports){
+},{"binary-search-bounds":35,"interval-tree-1d":155,"robust-orientation":201,"slab-decomposition":214}],188:[function(require,module,exports){
 //Optimized version for triangle closest point
 // Based on Eberly's WildMagick codes
 // http://www.geometrictools.com/LibMathematics/Distance/Distance.html
@@ -28130,7 +28126,7 @@ module.exports = closestPoint2d;
 
 },{}],189:[function(require,module,exports){
 module.exports = require('gl-quat/slerp')
-},{"gl-quat/slerp":123}],190:[function(require,module,exports){
+},{"gl-quat/slerp":121}],190:[function(require,module,exports){
 'use strict'
 
 var bnadd = require('big-rat/add')
@@ -28146,7 +28142,7 @@ function add (a, b) {
   return r
 }
 
-},{"big-rat/add":20}],191:[function(require,module,exports){
+},{"big-rat/add":19}],191:[function(require,module,exports){
 'use strict'
 
 module.exports = float2rat
@@ -28161,7 +28157,7 @@ function float2rat(v) {
   return result
 }
 
-},{"big-rat":23}],192:[function(require,module,exports){
+},{"big-rat":22}],192:[function(require,module,exports){
 'use strict'
 
 var rat = require('big-rat')
@@ -28179,7 +28175,7 @@ function muls(a, x) {
   return r
 }
 
-},{"big-rat":23,"big-rat/mul":32}],193:[function(require,module,exports){
+},{"big-rat":22,"big-rat/mul":31}],193:[function(require,module,exports){
 'use strict'
 
 var bnsub = require('big-rat/sub')
@@ -28195,7 +28191,7 @@ function sub(a, b) {
   return r
 }
 
-},{"big-rat/sub":34}],194:[function(require,module,exports){
+},{"big-rat/sub":33}],194:[function(require,module,exports){
 /*!
  * repeat-string <https://github.com/jonschlinkert/repeat-string>
  *
@@ -28417,7 +28413,7 @@ return robustDeterminant")
 }
 
 generateDispatch()
-},{"robust-compress":196,"robust-scale":203,"robust-sum":206,"two-product":222}],198:[function(require,module,exports){
+},{"robust-compress":196,"robust-scale":203,"robust-sum":206,"two-product":221}],198:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -28432,7 +28428,7 @@ function robustDotProduct(a, b) {
   }
   return r
 }
-},{"robust-sum":206,"two-product":222}],199:[function(require,module,exports){
+},{"robust-sum":206,"two-product":221}],199:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -28600,7 +28596,7 @@ function generateInSphereTest() {
 }
 
 generateInSphereTest()
-},{"robust-scale":203,"robust-subtract":205,"robust-sum":206,"two-product":222}],200:[function(require,module,exports){
+},{"robust-scale":203,"robust-subtract":205,"robust-sum":206,"two-product":221}],200:[function(require,module,exports){
 "use strict"
 
 var determinant = require("robust-determinant")
@@ -28863,7 +28859,7 @@ function generateOrientationProc() {
 }
 
 generateOrientationProc()
-},{"robust-scale":203,"robust-subtract":205,"robust-sum":206,"two-product":222}],202:[function(require,module,exports){
+},{"robust-scale":203,"robust-subtract":205,"robust-sum":206,"two-product":221}],202:[function(require,module,exports){
 "use strict"
 
 var robustSum = require("robust-sum")
@@ -28944,7 +28940,7 @@ function scaleLinearExpansion(e, scale) {
   g.length = count
   return g
 }
-},{"two-product":222,"two-sum":223}],204:[function(require,module,exports){
+},{"two-product":221,"two-sum":222}],204:[function(require,module,exports){
 "use strict"
 
 module.exports = segmentsIntersect
@@ -29469,7 +29465,7 @@ function extractContour(cells, values, level, d) {
     vertexWeights: uweights
   }
 }
-},{"./lib/codegen":208,"ndarray":175,"ndarray-sort":174,"typedarray-pool":224}],208:[function(require,module,exports){
+},{"./lib/codegen":208,"ndarray":175,"ndarray-sort":174,"typedarray-pool":223}],208:[function(require,module,exports){
 'use strict'
 
 module.exports = getPolygonizer
@@ -29566,355 +29562,9 @@ function getPolygonizer(d) {
   }
   return alg
 }
-},{"marching-simplex-table":160,"typedarray-pool":224}],209:[function(require,module,exports){
-"use strict"; "use restrict";
-
-var bits      = require("bit-twiddle")
-  , UnionFind = require("union-find")
-
-//Returns the dimension of a cell complex
-function dimension(cells) {
-  var d = 0
-    , max = Math.max
-  for(var i=0, il=cells.length; i<il; ++i) {
-    d = max(d, cells[i].length)
-  }
-  return d-1
-}
-exports.dimension = dimension
-
-//Counts the number of vertices in faces
-function countVertices(cells) {
-  var vc = -1
-    , max = Math.max
-  for(var i=0, il=cells.length; i<il; ++i) {
-    var c = cells[i]
-    for(var j=0, jl=c.length; j<jl; ++j) {
-      vc = max(vc, c[j])
-    }
-  }
-  return vc+1
-}
-exports.countVertices = countVertices
-
-//Returns a deep copy of cells
-function cloneCells(cells) {
-  var ncells = new Array(cells.length)
-  for(var i=0, il=cells.length; i<il; ++i) {
-    ncells[i] = cells[i].slice(0)
-  }
-  return ncells
-}
-exports.cloneCells = cloneCells
-
-//Ranks a pair of cells up to permutation
-function compareCells(a, b) {
-  var n = a.length
-    , t = a.length - b.length
-    , min = Math.min
-  if(t) {
-    return t
-  }
-  switch(n) {
-    case 0:
-      return 0;
-    case 1:
-      return a[0] - b[0];
-    case 2:
-      var d = a[0]+a[1]-b[0]-b[1]
-      if(d) {
-        return d
-      }
-      return min(a[0],a[1]) - min(b[0],b[1])
-    case 3:
-      var l1 = a[0]+a[1]
-        , m1 = b[0]+b[1]
-      d = l1+a[2] - (m1+b[2])
-      if(d) {
-        return d
-      }
-      var l0 = min(a[0], a[1])
-        , m0 = min(b[0], b[1])
-        , d  = min(l0, a[2]) - min(m0, b[2])
-      if(d) {
-        return d
-      }
-      return min(l0+a[2], l1) - min(m0+b[2], m1)
-    
-    //TODO: Maybe optimize n=4 as well?
-    
-    default:
-      var as = a.slice(0)
-      as.sort()
-      var bs = b.slice(0)
-      bs.sort()
-      for(var i=0; i<n; ++i) {
-        t = as[i] - bs[i]
-        if(t) {
-          return t
-        }
-      }
-      return 0
-  }
-}
-exports.compareCells = compareCells
-
-function compareZipped(a, b) {
-  return compareCells(a[0], b[0])
-}
-
-//Puts a cell complex into normal order for the purposes of findCell queries
-function normalize(cells, attr) {
-  if(attr) {
-    var len = cells.length
-    var zipped = new Array(len)
-    for(var i=0; i<len; ++i) {
-      zipped[i] = [cells[i], attr[i]]
-    }
-    zipped.sort(compareZipped)
-    for(var i=0; i<len; ++i) {
-      cells[i] = zipped[i][0]
-      attr[i] = zipped[i][1]
-    }
-    return cells
-  } else {
-    cells.sort(compareCells)
-    return cells
-  }
-}
-exports.normalize = normalize
-
-//Removes all duplicate cells in the complex
-function unique(cells) {
-  if(cells.length === 0) {
-    return []
-  }
-  var ptr = 1
-    , len = cells.length
-  for(var i=1; i<len; ++i) {
-    var a = cells[i]
-    if(compareCells(a, cells[i-1])) {
-      if(i === ptr) {
-        ptr++
-        continue
-      }
-      cells[ptr++] = a
-    }
-  }
-  cells.length = ptr
-  return cells
-}
-exports.unique = unique;
-
-//Finds a cell in a normalized cell complex
-function findCell(cells, c) {
-  var lo = 0
-    , hi = cells.length-1
-    , r  = -1
-  while (lo <= hi) {
-    var mid = (lo + hi) >> 1
-      , s   = compareCells(cells[mid], c)
-    if(s <= 0) {
-      if(s === 0) {
-        r = mid
-      }
-      lo = mid + 1
-    } else if(s > 0) {
-      hi = mid - 1
-    }
-  }
-  return r
-}
-exports.findCell = findCell;
-
-//Builds an index for an n-cell.  This is more general than dual, but less efficient
-function incidence(from_cells, to_cells) {
-  var index = new Array(from_cells.length)
-  for(var i=0, il=index.length; i<il; ++i) {
-    index[i] = []
-  }
-  var b = []
-  for(var i=0, n=to_cells.length; i<n; ++i) {
-    var c = to_cells[i]
-    var cl = c.length
-    for(var k=1, kn=(1<<cl); k<kn; ++k) {
-      b.length = bits.popCount(k)
-      var l = 0
-      for(var j=0; j<cl; ++j) {
-        if(k & (1<<j)) {
-          b[l++] = c[j]
-        }
-      }
-      var idx=findCell(from_cells, b)
-      if(idx < 0) {
-        continue
-      }
-      while(true) {
-        index[idx++].push(i)
-        if(idx >= from_cells.length || compareCells(from_cells[idx], b) !== 0) {
-          break
-        }
-      }
-    }
-  }
-  return index
-}
-exports.incidence = incidence
-
-//Computes the dual of the mesh.  This is basically an optimized version of buildIndex for the situation where from_cells is just the list of vertices
-function dual(cells, vertex_count) {
-  if(!vertex_count) {
-    return incidence(unique(skeleton(cells, 0)), cells, 0)
-  }
-  var res = new Array(vertex_count)
-  for(var i=0; i<vertex_count; ++i) {
-    res[i] = []
-  }
-  for(var i=0, len=cells.length; i<len; ++i) {
-    var c = cells[i]
-    for(var j=0, cl=c.length; j<cl; ++j) {
-      res[c[j]].push(i)
-    }
-  }
-  return res
-}
-exports.dual = dual
-
-//Enumerates all cells in the complex
-function explode(cells) {
-  var result = []
-  for(var i=0, il=cells.length; i<il; ++i) {
-    var c = cells[i]
-      , cl = c.length|0
-    for(var j=1, jl=(1<<cl); j<jl; ++j) {
-      var b = []
-      for(var k=0; k<cl; ++k) {
-        if((j >>> k) & 1) {
-          b.push(c[k])
-        }
-      }
-      result.push(b)
-    }
-  }
-  return normalize(result)
-}
-exports.explode = explode
-
-//Enumerates all of the n-cells of a cell complex
-function skeleton(cells, n) {
-  if(n < 0) {
-    return []
-  }
-  var result = []
-    , k0     = (1<<(n+1))-1
-  for(var i=0; i<cells.length; ++i) {
-    var c = cells[i]
-    for(var k=k0; k<(1<<c.length); k=bits.nextCombination(k)) {
-      var b = new Array(n+1)
-        , l = 0
-      for(var j=0; j<c.length; ++j) {
-        if(k & (1<<j)) {
-          b[l++] = c[j]
-        }
-      }
-      result.push(b)
-    }
-  }
-  return normalize(result)
-}
-exports.skeleton = skeleton;
-
-//Computes the boundary of all cells, does not remove duplicates
-function boundary(cells) {
-  var res = []
-  for(var i=0,il=cells.length; i<il; ++i) {
-    var c = cells[i]
-    for(var j=0,cl=c.length; j<cl; ++j) {
-      var b = new Array(c.length-1)
-      for(var k=0, l=0; k<cl; ++k) {
-        if(k !== j) {
-          b[l++] = c[k]
-        }
-      }
-      res.push(b)
-    }
-  }
-  return normalize(res)
-}
-exports.boundary = boundary;
-
-//Computes connected components for a dense cell complex
-function connectedComponents_dense(cells, vertex_count) {
-  var labels = new UnionFind(vertex_count)
-  for(var i=0; i<cells.length; ++i) {
-    var c = cells[i]
-    for(var j=0; j<c.length; ++j) {
-      for(var k=j+1; k<c.length; ++k) {
-        labels.link(c[j], c[k])
-      }
-    }
-  }
-  var components = []
-    , component_labels = labels.ranks
-  for(var i=0; i<component_labels.length; ++i) {
-    component_labels[i] = -1
-  }
-  for(var i=0; i<cells.length; ++i) {
-    var l = labels.find(cells[i][0])
-    if(component_labels[l] < 0) {
-      component_labels[l] = components.length
-      components.push([cells[i].slice(0)])
-    } else {
-      components[component_labels[l]].push(cells[i].slice(0))
-    }
-  }
-  return components
-}
-
-//Computes connected components for a sparse graph
-function connectedComponents_sparse(cells) {
-  var vertices  = unique(normalize(skeleton(cells, 0)))
-    , labels    = new UnionFind(vertices.length)
-  for(var i=0; i<cells.length; ++i) {
-    var c = cells[i]
-    for(var j=0; j<c.length; ++j) {
-      var vj = findCell(vertices, [c[j]])
-      for(var k=j+1; k<c.length; ++k) {
-        labels.link(vj, findCell(vertices, [c[k]]))
-      }
-    }
-  }
-  var components        = []
-    , component_labels  = labels.ranks
-  for(var i=0; i<component_labels.length; ++i) {
-    component_labels[i] = -1
-  }
-  for(var i=0; i<cells.length; ++i) {
-    var l = labels.find(findCell(vertices, [cells[i][0]]));
-    if(component_labels[l] < 0) {
-      component_labels[l] = components.length
-      components.push([cells[i].slice(0)])
-    } else {
-      components[component_labels[l]].push(cells[i].slice(0))
-    }
-  }
-  return components
-}
-
-//Computes connected components for a cell complex
-function connectedComponents(cells, vertex_count) {
-  if(vertex_count) {
-    return connectedComponents_dense(cells, vertex_count)
-  }
-  return connectedComponents_sparse(cells)
-}
-exports.connectedComponents = connectedComponents
-
-},{"bit-twiddle":37,"union-find":225}],210:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"dup":37}],211:[function(require,module,exports){
-arguments[4][209][0].apply(exports,arguments)
-},{"bit-twiddle":210,"dup":209,"union-find":212}],212:[function(require,module,exports){
+},{"marching-simplex-table":160,"typedarray-pool":223}],209:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],210:[function(require,module,exports){
 "use strict"; "use restrict";
 
 module.exports = UnionFind;
@@ -29971,7 +29621,9 @@ UnionFind.prototype.link = function(x, y) {
 }
 
 
-},{}],213:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
+arguments[4][154][0].apply(exports,arguments)
+},{"bit-twiddle":209,"dup":154,"union-find":210}],212:[function(require,module,exports){
 "use strict"
 
 module.exports = simplifyPolygon
@@ -30243,7 +29895,7 @@ function simplifyPolygon(cells, positions, minArea) {
     edges: ncells
   }
 }
-},{"robust-orientation":201,"simplicial-complex":211}],214:[function(require,module,exports){
+},{"robust-orientation":201,"simplicial-complex":211}],213:[function(require,module,exports){
 "use strict"
 
 module.exports = orderSegments
@@ -30339,7 +29991,7 @@ function orderSegments(b, a) {
   }
   return ar[0] - br[0]
 }
-},{"robust-orientation":201}],215:[function(require,module,exports){
+},{"robust-orientation":201}],214:[function(require,module,exports){
 "use strict"
 
 module.exports = createSlabDecomposition
@@ -30570,7 +30222,7 @@ function createSlabDecomposition(segments) {
   }
   return new SlabDecomposition(slabs, lines, horizontal)
 }
-},{"./lib/order-segments":214,"binary-search-bounds":36,"functional-red-black-tree":75,"robust-orientation":201}],216:[function(require,module,exports){
+},{"./lib/order-segments":213,"binary-search-bounds":35,"functional-red-black-tree":73,"robust-orientation":201}],215:[function(require,module,exports){
 "use strict"
 
 var robustDot = require("robust-dot-product")
@@ -30662,7 +30314,7 @@ function negative(points, plane) {
   }
   return neg
 }
-},{"robust-dot-product":198,"robust-sum":206}],217:[function(require,module,exports){
+},{"robust-dot-product":198,"robust-sum":206}],216:[function(require,module,exports){
 /* global window, exports, define */
 
 !function() {
@@ -30882,7 +30534,7 @@ function negative(points, plane) {
     /* eslint-enable quote-props */
 }()
 
-},{}],218:[function(require,module,exports){
+},{}],217:[function(require,module,exports){
 "use strict"
 
 module.exports = surfaceNets
@@ -31090,7 +30742,7 @@ function surfaceNets(array,level) {
   }
   return proc(array,level)
 }
-},{"ndarray-extract-contour":171,"triangulate-hypercube":220,"zero-crossings":233}],219:[function(require,module,exports){
+},{"ndarray-extract-contour":171,"triangulate-hypercube":219,"zero-crossings":232}],218:[function(require,module,exports){
 'use strict'
 
 var parseUnit = require('parse-unit')
@@ -31151,7 +30803,7 @@ function toPX(str, element) {
   }
   return 1
 }
-},{"parse-unit":181}],220:[function(require,module,exports){
+},{"parse-unit":181}],219:[function(require,module,exports){
 "use strict"
 
 module.exports = triangulateCube
@@ -31185,7 +30837,7 @@ function triangulateCube(dimension) {
   }
   return result
 }
-},{"gamma":76,"permutation-parity":182,"permutation-rank":183}],221:[function(require,module,exports){
+},{"gamma":74,"permutation-parity":182,"permutation-rank":183}],220:[function(require,module,exports){
 'use strict'
 
 module.exports = createTurntableController
@@ -31758,7 +31410,7 @@ function createTurntableController(options) {
     theta,
     phi)
 }
-},{"filtered-vector":74,"gl-mat4/invert":99,"gl-mat4/rotate":105,"gl-vec3/cross":142,"gl-vec3/dot":143,"gl-vec3/normalize":146}],222:[function(require,module,exports){
+},{"filtered-vector":72,"gl-mat4/invert":97,"gl-mat4/rotate":103,"gl-vec3/cross":140,"gl-vec3/dot":141,"gl-vec3/normalize":144}],221:[function(require,module,exports){
 "use strict"
 
 module.exports = twoProduct
@@ -31792,7 +31444,7 @@ function twoProduct(a, b, result) {
 
   return [ y, x ]
 }
-},{}],223:[function(require,module,exports){
+},{}],222:[function(require,module,exports){
 "use strict"
 
 module.exports = fastTwoSum
@@ -31810,7 +31462,7 @@ function fastTwoSum(a, b, result) {
 	}
 	return [ar+br, x]
 }
-},{}],224:[function(require,module,exports){
+},{}],223:[function(require,module,exports){
 (function (global,Buffer){
 'use strict'
 
@@ -32027,7 +31679,7 @@ exports.clearCache = function clearCache() {
   }
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"bit-twiddle":37,"buffer":3,"dup":71}],225:[function(require,module,exports){
+},{"bit-twiddle":36,"buffer":3,"dup":69}],224:[function(require,module,exports){
 "use strict"; "use restrict";
 
 module.exports = UnionFind;
@@ -32090,7 +31742,7 @@ proto.link = function(x, y) {
     ++ranks[xr];
   }
 }
-},{}],226:[function(require,module,exports){
+},{}],225:[function(require,module,exports){
 "use strict"
 
 function unique_pred(list, compare) {
@@ -32149,7 +31801,7 @@ function unique(list, compare, sorted) {
 
 module.exports = unique
 
-},{}],227:[function(require,module,exports){
+},{}],226:[function(require,module,exports){
 "use strict"
 
 module.exports = createText
@@ -32176,7 +31828,7 @@ function createText(str, options) {
     options)
 }
 
-},{"./lib/vtext":228}],228:[function(require,module,exports){
+},{"./lib/vtext":227}],227:[function(require,module,exports){
 "use strict"
 
 module.exports = vectorizeText
@@ -32382,7 +32034,7 @@ function vectorizeText(str, canvas, context, options) {
   return processPixels(pixels, options, size)
 }
 
-},{"cdt2d":48,"clean-pslg":54,"ndarray":175,"planar-graph-to-polyline":186,"simplify-planar-graph":213,"surface-nets":218}],229:[function(require,module,exports){
+},{"cdt2d":47,"clean-pslg":53,"ndarray":175,"planar-graph-to-polyline":186,"simplify-planar-graph":212,"surface-nets":217}],228:[function(require,module,exports){
 var hiddenStore = require('./hidden-store.js');
 
 module.exports = createStore;
@@ -32403,7 +32055,7 @@ function createStore() {
     };
 }
 
-},{"./hidden-store.js":230}],230:[function(require,module,exports){
+},{"./hidden-store.js":229}],229:[function(require,module,exports){
 module.exports = hiddenStore;
 
 function hiddenStore(obj, key) {
@@ -32421,7 +32073,7 @@ function hiddenStore(obj, key) {
     return store;
 }
 
-},{}],231:[function(require,module,exports){
+},{}],230:[function(require,module,exports){
 // Original - @Gozola.
 // https://gist.github.com/Gozala/1269991
 // This is a reimplemented version (with a few bug fixes).
@@ -32452,7 +32104,7 @@ function weakMap() {
     }
 }
 
-},{"./create-store.js":229}],232:[function(require,module,exports){
+},{"./create-store.js":228}],231:[function(require,module,exports){
 module.exports = require('cwise-compiler')({
     args: ['array', {
         offset: [1],
@@ -32504,7 +32156,7 @@ module.exports = require('cwise-compiler')({
     funcName: 'zeroCrossings'
 })
 
-},{"cwise-compiler":66}],233:[function(require,module,exports){
+},{"cwise-compiler":64}],232:[function(require,module,exports){
 "use strict"
 
 module.exports = findZeroCrossings
@@ -32517,4 +32169,4 @@ function findZeroCrossings(array, level) {
   core(array.hi(array.shape[0]-1), cross, level)
   return cross
 }
-},{"./lib/zc-core":232}]},{},[6]);
+},{"./lib/zc-core":231}]},{},[6]);
