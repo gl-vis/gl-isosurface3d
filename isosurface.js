@@ -22,11 +22,11 @@ exports = module.exports = function(params, bounds) {
 		if (params.singleMesh) {
 			isosurf = exports.concatMeshes(isosurf, isocaps);
 		} else {
-			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds);
+			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds, params.meshgrid);
 			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}
-	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds);
+	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds, params.meshgrid);
 	isoPlot.colormap = params.colormap;
 	if (isocapsMesh) {
 		isoPlot.caps = isocapsMesh;
@@ -507,19 +507,15 @@ exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds, meshgrid
 	var vertices = mesh.vertices, normals = mesh.normals;
 	var w = dims[0], h = dims[1], d = dims[2];
 	var vertexIntensity = new Float32Array(vertices.length / 3);
-	if (meshgrid) {
-		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
-			var x = meshgrid[0][vertices[j]];
-			var y = meshgrid[1][vertices[j+1]];
-			var z = meshgrid[2][vertices[j+2]];
-			vertexIntensity[i] = data[z*h*w + y*w + x];
-		}
-	} else {
-		for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
-			var x = vertices[j];
-			var y = vertices[j+1];
-			var z = vertices[j+2];
-			vertexIntensity[i] = data[z*h*w + y*w + x];
+	for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
+		var x = vertices[j];
+		var y = vertices[j+1];
+		var z = vertices[j+2];
+		vertexIntensity[i] = data[z*h*w + y*w + x];
+		if (meshgrid) {
+			vertices[j    ] = meshgrid[0][x];
+			vertices[j + 1] = meshgrid[1][y];
+			vertices[j + 2] = meshgrid[2][z];
 		}
 	}
 	var geo = {
