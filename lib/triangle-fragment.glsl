@@ -18,10 +18,10 @@ varying vec3 f_normal
 varying vec2 f_uv;
 
 void main() {
-  if(any(lessThan(f_data, clipBounds[0])) || 
-     any(greaterThan(f_data, clipBounds[1]))) {
-    discard;
-  }
+  // if(any(lessThan(f_data, clipBounds[0])) || 
+  //    any(greaterThan(f_data, clipBounds[1]))) {
+  //   discard;
+  // }
 
   vec3 N = normalize(f_normal);
   vec3 L = normalize(f_lightDirection);
