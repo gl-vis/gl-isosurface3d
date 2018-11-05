@@ -10,7 +10,7 @@ exports = module.exports = function(params, bounds) {
 	}
 	var dims = params.dimensions;
 	var data = params.values;
-	var isoBounds = params.isoBounds || [1, 1/0];
+	var isoBounds = params.isoBounds || [1, Infinity];
 	var isoMin = isoBounds[0], isoMax = isoBounds[1];
 	var isosurf = exports.marchingCubes(dims, data, isoMin, isoMax, bounds)
 	if (params.smoothNormals) {
@@ -41,8 +41,8 @@ exports.createTriMesh = createTriMesh;
 
 var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
 
-var geoTable = require('./geoTable');
-var normalTable = require('./normalTable');
+var geoTable = require('./lib/geoTable');
+var normalTable = require('./lib/normalTable');
 
 var geoLengthTable = geoTable.map(function(a) { return a.length });
 
