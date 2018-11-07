@@ -230,14 +230,9 @@ function munchData(data, isoMin, isoMax) {
 	}
 	var i = 0, s = 0, dl8 = data.length - 8;
 	for (i = 0; i < dl8; i += 8) {
-		data2[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
-		data2[i+1] = (data[i+1] >= isoMin && data[i+1] <= isoMax) ? 1 : 0;
-		data2[i+2] = (data[i+2] >= isoMin && data[i+2] <= isoMax) ? 1 : 0;
-		data2[i+3] = (data[i+3] >= isoMin && data[i+3] <= isoMax) ? 1 : 0;
-		data2[i+4] = (data[i+4] >= isoMin && data[i+4] <= isoMax) ? 1 : 0;
-		data2[i+5] = (data[i+5] >= isoMin && data[i+5] <= isoMax) ? 1 : 0;
-		data2[i+6] = (data[i+6] >= isoMin && data[i+6] <= isoMax) ? 1 : 0;
-		data2[i+7] = (data[i+7] >= isoMin && data[i+7] <= isoMax) ? 1 : 0;
+		for (var j = 0; j < 8; ++j) {
+			data2[i+j] = (data[i+j] >= isoMin && data[i+j] <= isoMax) ? 1 : 0;
+		}
 	}
 	for (; i < data.length; i++) {
 		data2[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
@@ -323,73 +318,11 @@ exports.marchingCubeCapXYZ = function(axis, dims, data, isoMin, isoMax, bounds, 
 		off2 = tmp;
 	}
 
-
 	var dataSlice = new Uint8Array(bw*bh*bd);
 
-if (axis === 0) {
-
-	for (var z=sz; z<ez; z++) {
-		for (var y=sy; y<ey; y++) {
-			//for (var x=sx; x<ex; x++) {
-
-				var off =
-					(axis === 0) ? z*width*height + y*width :
-		            (axis === 1) ? z*width*height + x :
-			  					   y*width + x;
-
-				var index =
-					(axis === 0) ? cap :
-				    (axis === 1) ? cap*width :
-				                   cap*width*height;
-
-				var v = data[index + off];
-
-				var begin =
-					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
-					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
-					               (y - sy)*bw + (x - sx);
-
-				dataSlice[begin + off1] = 0;
-				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
-			//}
-		}
-	}
-}
-
-
-if (axis === 1) {
-	for (var z=sz; z<ez; z++) {
-		//for (var y=sy; y<ey; y++) {
-			for (var x=sx; x<ex; x++) {
-
-				var off =
-					(axis === 0) ? z*width*height + y*width :
-		            (axis === 1) ? z*width*height + x :
-			  					   y*width + x;
-
-				var index =
-					(axis === 0) ? cap :
-				    (axis === 1) ? cap*width :
-				                   cap*width*height;
-
-				var v = data[index + off];
-
-				var begin =
-					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
-					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
-					               (y - sy)*bw + (x - sx);
-
-				dataSlice[begin + off1] = 0;
-				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
-			}
-		//}
-	}
-}
-
-if (axis === 2) {
-	//for (var z=sz; z<ez; z++) {
-		for (var y=sy; y<ey; y++) {
-			for (var x=sx; x<ex; x++) {
+	for (var z=sz; z<sz+bd; z++) {
+		for (var y=sy; y<sy+bh; y++) {
+			for (var x=sx; x<sx+bw; x++) {
 
 				var off =
 					(axis === 0) ? z*width*height + y*width :
@@ -412,8 +345,7 @@ if (axis === 2) {
 				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
 			}
 		}
-	//}
-}
+	}
 
 	var sliceDims = [bw, bh, bd];
 	var bounds = [[0,0,0], sliceDims];
