@@ -12,21 +12,21 @@ exports = module.exports = function(params, bounds) {
 	var data = params.values;
 	var isoBounds = params.isoBounds || [1, Infinity];
 	var isoMin = isoBounds[0], isoMax = isoBounds[1];
-	var isosurf = exports.marchingCubes(dims, data, isoMin, isoMax, bounds)
+	var isosurf = marchingCubes(dims, data, isoMin, isoMax, bounds)
 	if (params.smoothNormals) {
-		exports.smoothNormals(isosurf);
+		smoothNormals(isosurf);
 	}
 	var isocapsMesh;
 	if (params.isoCaps) {
-		var isocaps = exports.marchingCubesCaps(dims, data, isoMin, isoMax, bounds);
+		var isocaps = marchingCubesCaps(dims, data, isoMin, isoMax, bounds);
 		if (params.singleMesh) {
-			isosurf = exports.concatMeshes(isosurf, isocaps);
+			isosurf = concatMeshes(isosurf, isocaps);
 		} else {
-			isocapsMesh = exports.meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds, params.meshgrid);
+			isocapsMesh = meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds, params.meshgrid);
 			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}
-	var isoPlot = exports.meshConvert(isosurf, data, dims, params.vertexIntensityBounds, params.meshgrid);
+	var isoPlot = meshConvert(isosurf, data, dims, params.vertexIntensityBounds, params.meshgrid);
 	isoPlot.colormap = params.colormap;
 	if (isocapsMesh) {
 		isoPlot.caps = isocapsMesh;
@@ -187,7 +187,7 @@ function munchData(data, isoMin, isoMax) {
 var data2 = new Uint8Array(1000000);
 var geoIndices = new Uint8Array(1000000);
 
-exports.marchingCubes = function(dims, data, isoMin, isoMax, bounds) {
+function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 
 	console.log({dims, data, isoMin, isoMax, bounds});
 
@@ -238,7 +238,7 @@ exports.marchingCubes = function(dims, data, isoMin, isoMax, bounds) {
 	return {vertices: vertices, normals: normals};
 };
 
-exports.marchingCubeCapXYZ = function(axis, dims, data, isoMin, isoMax, bounds, dir) {
+function marchingCubeCapXYZ(axis, dims, data, isoMin, isoMax, bounds, dir) {
 
 	var cap = (dir === -1) ? bounds[0][axis] : bounds[1][axis]-1;
 
@@ -316,7 +316,7 @@ exports.marchingCubeCapXYZ = function(axis, dims, data, isoMin, isoMax, bounds, 
 	return {vertices: vertices, normals: normals};
 }
 
-exports.concatMeshes = function() {
+function concatMeshes() {
 	if (LOG_TIMINGS) {
 		console.time('concatMeshes');
 	}
@@ -341,19 +341,18 @@ exports.concatMeshes = function() {
 	return {vertices: vertices, normals: normals};
 }
 
-exports.marchingCubesCaps = function(dims, data, isoMin, isoMax, bounds) {
+function marchingCubesCaps(dims, data, isoMin, isoMax, bounds) {
 	if (LOG_TIMINGS) {
 		console.time('isoCaps');
 	}
 
-	var mesh = exports.concatMeshes(
-		exports.marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, 1),
-		exports.marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, 1),
-		exports.marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, 1)
-
+	var mesh = concatMeshes(
+		marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, -1),
+		marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, 1),
+		marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, -1),
+		marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, 1),
+		marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, -1),
+		marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, 1)
 	);
 	if (LOG_TIMINGS) {
 		console.timeEnd('isoCaps');
@@ -361,7 +360,7 @@ exports.marchingCubesCaps = function(dims, data, isoMin, isoMax, bounds) {
 	return mesh;
 };
 
-exports.smoothNormals = function(mesh) {
+function smoothNormals(mesh) {
 	var vertices = mesh.vertices, normals = mesh.normals;
 	if (LOG_TIMINGS) {
 		console.time('computeVertexNormals');
@@ -373,7 +372,7 @@ exports.smoothNormals = function(mesh) {
 	return mesh;
 };
 
-exports.meshConvert = function(mesh, data, dims, vertexIntensityBounds, meshgrid) {
+function meshConvert(mesh, data, dims, vertexIntensityBounds, meshgrid) {
 	if (LOG_TIMINGS) {
 		console.time('meshConvert');
 	}
