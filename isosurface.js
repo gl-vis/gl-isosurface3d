@@ -69,31 +69,15 @@ var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 				vl = verts.length;
 
 				for (i=0,u=0; i<vl;) {
+					for (var q = 0; q < 3; ++q) { // do this three times.
+						normals[w++] = norms[u++];
+						normals[w++] = norms[u++];
+						normals[w++] = norms[u++];
 
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-					normals[w++] = norms[u++];
-
-					vertices[k++] = verts[i++] + x;
-					vertices[k++] = verts[i++] + y;
-					vertices[k++] = verts[i++] + z;
-
-					vertices[k++] = verts[i++] + x;
-					vertices[k++] = verts[i++] + y;
-					vertices[k++] = verts[i++] + z;
-
-					vertices[k++] = verts[i++] + x;
-					vertices[k++] = verts[i++] + y;
-					vertices[k++] = verts[i++] + z;
-
+						vertices[k++] = verts[i++] + x;
+						vertices[k++] = verts[i++] + y;
+						vertices[k++] = verts[i++] + z;
+					}
 				}
 			}
 		}
@@ -160,23 +144,23 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 				vertexCount += geoLengthTable[c[3]];
 			}
 			for (; x<ex; x++, n++) {
-				var c0 = 0;
+				var d = 0;
 
-				c0 += s1*1;
-				c0 += s3*4;
-				c0 += s5*16;
-				c0 += s7*64;
+				d += s1*1;
+				d += s3*4;
+				d += s5*16;
+				d += s7*64;
 				s1 = data[yOff00++];
 				s3 = data[yOff01++];
 				s5 = data[yOff10++];
 				s7 = data[yOff11++];
-				c0 += s1*2;
-				c0 += s3*8;
-				c0 += s5*32;
-				c0 += s7*128;
+				d += s1*2;
+				d += s3*8;
+				d += s5*32;
+				d += s7*128;
 
-				geoIndices[n+0] = c0;
-				vertexCount += geoLengthTable[c0];
+				geoIndices[n+0] = d;
+				vertexCount += geoLengthTable[d];
 			}
 		}
 	}
