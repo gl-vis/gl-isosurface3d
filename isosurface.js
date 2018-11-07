@@ -7,8 +7,6 @@ var geoTable = require('./lib/geoTable');
 var normalTable = require('./lib/normalTable');
 var createTriMesh = require('./lib/trimesh');
 
-var geoIndices = new Uint8Array(1000000); // investigate why we need to allocate this?!
-
 exports = module.exports = function(params, bounds) {
 	if (params.logTimings) {
 		LOG_TIMINGS = true;
@@ -84,7 +82,7 @@ var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 	}
 }
 
-var buildGeoIndices = function(geoIndices, data, dims, bounds) {
+var buildGeoIndices = function(data, dims, bounds) {
 	var x, y, z;
 	var width = dims[0], height = dims[1], depth = dims[2];
 	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
@@ -99,6 +97,8 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 
 	var zOff, yOff00, yOff01, yOff10, yOff11;
 	var s1, s3, s5, s7;
+
+	var geoIndices = new Uint8Array((ex - sx) * (ey - sy) * (ez - sz));
 
 	// March over the volume
 	for (z=sz; z<ez; z++) {
@@ -158,13 +158,16 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 				d += s5*32;
 				d += s7*128;
 
-				geoIndices[n+0] = d;
+				geoIndices[n] = d;
 				vertexCount += geoLengthTable[d];
 			}
 		}
 	}
 
-	return vertexCount;
+	return {
+		geoIndices: geoIndices,
+		vertexCount: vertexCount
+	};
 }
 
 function munchData(data, isoMin, isoMax) {
@@ -210,11 +213,9 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 		console.time("construct cube indices");
 	}
 
-	var geoIndicesLength = (ez-sz-1)*(ey-sy-1)*(ex-sx-1);
-	if (geoIndices.length < geoIndicesLength) {
-		geoIndices = new Uint8Array(geoIndicesLength);
-	}
-	var vertexCount = buildGeoIndices(geoIndices, munchedData, dims, bounds);
+	var result = buildGeoIndices(munchedData, dims, bounds);
+    var geoIndices = result.geoIndices;
+	var vertexCount = result.vertexCount;
 
 	if (LOG_TIMINGS) {
 		console.timeEnd("construct cube indices");
@@ -224,6 +225,7 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
+
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
 
 	if (LOG_TIMINGS) {
@@ -289,11 +291,10 @@ function marchingCubeCapXYZ(axis, dims, data, isoMin, isoMax, bounds, dir) {
 
 	var sliceDims = [bw, bh, bd];
 	var bounds = [[0,0,0], sliceDims];
-	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
-	if (geoIndices.length < geoIndicesLength) {
-		geoIndices = new Uint8Array(geoIndicesLength);
-	}
-	var vertexCount = buildGeoIndices(geoIndices, dataSlice, sliceDims, bounds);
+
+	var result = buildGeoIndices(dataSlice, sliceDims, bounds);
+	var geoIndices = result.geoIndices;
+	var vertexCount = result.vertexCount;
 
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
