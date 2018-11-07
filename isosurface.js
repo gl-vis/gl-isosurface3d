@@ -7,7 +7,6 @@ var geoTable = require('./lib/geoTable');
 var normalTable = require('./lib/normalTable');
 var createTriMesh = require('./lib/trimesh');
 
-var data2 = new Uint8Array(1000000); // investigate why we need to allocate this?!
 var geoIndices = new Uint8Array(1000000); // investigate why we need to allocate this?!
 
 exports = module.exports = function(params, bounds) {
@@ -169,18 +168,20 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 }
 
 function munchData(data, isoMin, isoMax) {
-	if (data2.length < data.length) {
-		data2 = new Uint8Array(data.length);
-	}
+
+	var munchedData = new Uint8Array(data.length);
+
 	var i = 0, s = 0, dl8 = data.length - 8;
 	for (i = 0; i < dl8; i += 8) {
 		for (var j = 0; j < 8; ++j) {
-			data2[i+j] = (data[i+j] >= isoMin && data[i+j] <= isoMax) ? 1 : 0;
+			munchedData[i+j] = (data[i+j] >= isoMin && data[i+j] <= isoMax) ? 1 : 0;
 		}
 	}
 	for (; i < data.length; i++) {
-		data2[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
+		munchedData[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
 	}
+
+	return munchedData;
 }
 
 
@@ -201,7 +202,7 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 		console.time("Munch data");
 	}
 
-	munchData(data, isoMin, isoMax);
+	var munchedData = munchData(data, isoMin, isoMax);
 
 	if (LOG_TIMINGS) {
 		console.timeEnd("Munch data");
@@ -213,7 +214,7 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 	if (geoIndices.length < geoIndicesLength) {
 		geoIndices = new Uint8Array(geoIndicesLength);
 	}
-	var vertexCount = buildGeoIndices(geoIndices, data2, dims, bounds);
+	var vertexCount = buildGeoIndices(geoIndices, munchedData, dims, bounds);
 
 	if (LOG_TIMINGS) {
 		console.timeEnd("construct cube indices");
