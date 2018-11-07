@@ -1,8 +1,11 @@
 "use strict";
 
-var createTriMesh = require('./lib/trimesh');
-
 var LOG_TIMINGS = false;
+
+var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
+var geoTable = require('./lib/geoTable');
+var normalTable = require('./lib/normalTable');
+var createTriMesh = require('./lib/trimesh');
 
 exports = module.exports = function(params, bounds) {
 	if (params.logTimings) {
@@ -38,11 +41,6 @@ exports = module.exports = function(params, bounds) {
 };
 
 exports.createTriMesh = createTriMesh;
-
-var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
-
-var geoTable = require('./lib/geoTable');
-var normalTable = require('./lib/normalTable');
 
 var geoLengthTable = geoTable.map(function(a) { return a.length });
 
@@ -83,7 +81,6 @@ var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 		}
 	}
 }
-
 
 var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 	var x, y, z;
@@ -183,13 +180,10 @@ function munchData(data, isoMin, isoMax) {
 	}
 }
 
-
 var data2 = new Uint8Array(1000000);
 var geoIndices = new Uint8Array(1000000);
 
 function marchingCubes(dims, data, isoMin, isoMax, bounds) {
-
-	console.log({dims, data, isoMin, isoMax, bounds});
 
 	if (LOG_TIMINGS) {
 		console.log('---');
