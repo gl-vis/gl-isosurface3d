@@ -328,9 +328,9 @@ exports.marchingCubeCapXYZ = function(axis, dims, data, isoMin, isoMax, bounds, 
 
 if (axis === 0) {
 
-	for (var z=sz,dz=0; z<ez; z++,dz++) {
-		for (var y=sy,dy=0; y<ey; y++,dy++) {
-			//for (var x=sx,dx=0; x<ex; x++,dx++) {
+	for (var z=sz; z<ez; z++) {
+		for (var y=sy; y<ey; y++) {
+			//for (var x=sx; x<ex; x++) {
 
 				var off =
 					(axis === 0) ? z*width*height + y*width :
@@ -345,9 +345,9 @@ if (axis === 0) {
 				var v = data[index + off];
 
 				var begin =
-					(axis === 0) ? dz*bw*bh + dy*bw :
-					(axis === 1) ? dz*bw*bh + dx :
-					               dy*bw + dx;
+					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
+					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
+					               (y - sy)*bw + (x - sx);
 
 				dataSlice[begin + off1] = 0;
 				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
@@ -358,9 +358,9 @@ if (axis === 0) {
 
 
 if (axis === 1) {
-	for (var z=sz,dz=0; z<ez; z++,dz++) {
-		//for (var y=sy,dy=0; y<ey; y++,dy++) {
-			for (var x=sx,dx=0; x<ex; x++,dx++) {
+	for (var z=sz; z<ez; z++) {
+		//for (var y=sy; y<ey; y++) {
+			for (var x=sx; x<ex; x++) {
 
 				var off =
 					(axis === 0) ? z*width*height + y*width :
@@ -375,22 +375,21 @@ if (axis === 1) {
 				var v = data[index + off];
 
 				var begin =
-					(axis === 0) ? dz*bw*bh + dy*bw :
-					(axis === 1) ? dz*bw*bh + dx :
-					               dy*bw + dx;
+					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
+					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
+					               (y - sy)*bw + (x - sx);
 
 				dataSlice[begin + off1] = 0;
 				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
-
 			}
 		//}
 	}
 }
 
 if (axis === 2) {
-	//for (var z=sz,dz=0; z<ez; z++,dz++) {
-		for (var y=sy,dy=0; y<ey; y++,dy++) {
-			for (var x=sx,dx=0; x<ex; x++,dx++) {
+	//for (var z=sz; z<ez; z++) {
+		for (var y=sy; y<ey; y++) {
+			for (var x=sx; x<ex; x++) {
 
 				var off =
 					(axis === 0) ? z*width*height + y*width :
@@ -405,13 +404,12 @@ if (axis === 2) {
 				var v = data[index + off];
 
 				var begin =
-					(axis === 0) ? dz*bw*bh + dy*bw :
-					(axis === 1) ? dz*bw*bh + dx :
-					               dy*bw + dx;
+					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
+					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
+					               (y - sy)*bw + (x - sx);
 
 				dataSlice[begin + off1] = 0;
 				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
-
 			}
 		}
 	//}
