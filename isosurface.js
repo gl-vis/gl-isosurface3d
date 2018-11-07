@@ -7,6 +7,9 @@ var geoTable = require('./lib/geoTable');
 var normalTable = require('./lib/normalTable');
 var createTriMesh = require('./lib/trimesh');
 
+var data2 = new Uint8Array(1000000); // investigate why we need to allocate this?!
+var geoIndices = new Uint8Array(1000000); // investigate why we need to allocate this?!
+
 exports = module.exports = function(params, bounds) {
 	if (params.logTimings) {
 		LOG_TIMINGS = true;
@@ -180,8 +183,6 @@ function munchData(data, isoMin, isoMax) {
 	}
 }
 
-var data2 = new Uint8Array(1000000);
-var geoIndices = new Uint8Array(1000000);
 
 function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 
