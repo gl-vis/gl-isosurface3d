@@ -249,6 +249,9 @@ var data2 = new Uint8Array(1000000);
 var geoIndices = new Uint8Array(1000000);
 
 exports.marchingCubes = function(dims, data, isoMin, isoMax, bounds) {
+
+	console.log({dims, data, isoMin, isoMax, bounds});
+
 	if (LOG_TIMINGS) {
 		console.log('---');
 		console.time('marchingCubes');
@@ -296,132 +299,123 @@ exports.marchingCubes = function(dims, data, isoMin, isoMax, bounds) {
 	return {vertices: vertices, normals: normals};
 };
 
-exports.marchingCubeCapX = function(dims, data, isoMin, isoMax, bounds, dir) {
-	var capX = dir === -1 ? bounds[0][0] : bounds[1][0]-1;
+exports.marchingCubeCapXYZ = function(axis, dims, data, isoMin, isoMax, bounds, dir) {
+
+	var cap = (dir === -1) ? bounds[0][axis] : bounds[1][axis]-1;
+
 	var width = dims[0], height = dims[1], depth = dims[2];
 	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
 	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
-	var bw = 2;
-	var bh = ey-sy;
-	var bd = ez-sz;
+	var bw = (axis === 0) ? 2 : ex - sx;
+	var bh = (axis === 1) ? 2 : ey - sy;
+	var bd = (axis === 2) ? 2 : ez - sz;
 
-	var off1 = 0, off2 = 1;
+	var off1 = 0;
+	var off2 =
+		(axis === 0) ? 1 :
+		(axis === 1) ? bw :
+					   bw*bh;
+
 	if (dir === -1) {
-		off1 = 1;
-		off2 = 0;
+        var tmp = off1;
+		off1 = off2;
+		off2 = tmp;
 	}
 
-	var dataSlice = new Uint8Array(bw * bh * bd);
-	var zStride = width * height;
+
+	var dataSlice = new Uint8Array(bw*bh*bd);
+
+if (axis === 0) {
+
 	for (var z=sz,dz=0; z<ez; z++,dz++) {
 		for (var y=sy,dy=0; y<ey; y++,dy++) {
-			var off = z * zStride + y * width;
-			var v = data[off + capX];
-			dataSlice[off1 + dz*bw*bh + dy*bw] = 0;
-			dataSlice[off2 + dz*bw*bh + dy*bw] = (v >= isoMin && v <= isoMax) ? 1 : 0;
+			//for (var x=sx,dx=0; x<ex; x++,dx++) {
+
+				var off =
+					(axis === 0) ? z*width*height + y*width :
+		            (axis === 1) ? z*width*height + x :
+			  					   y*width + x;
+
+				var index =
+					(axis === 0) ? cap :
+				    (axis === 1) ? cap*width :
+				                   cap*width*height;
+
+				var v = data[index + off];
+
+				var begin =
+					(axis === 0) ? dz*bw*bh + dy*bw :
+					(axis === 1) ? dz*bw*bh + dx :
+					               dy*bw + dx;
+
+				dataSlice[begin + off1] = 0;
+				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
+			//}
 		}
 	}
-
-	var sliceDims = [bw, bh, bd];
-	var bounds = [[0,0,0], sliceDims];
-	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
-	if (geoIndices.length < geoIndicesLength) {
-		geoIndices = new Uint8Array(geoIndicesLength);
-	}
-	var vertexCount = buildGeoIndices(geoIndices, dataSlice, sliceDims, bounds);
-
-	var vertices = new Float32Array(vertexCount);
-	var normals = new Float32Array(vertexCount);
-	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
-	for (var i=0; i<vertices.length; i+=3) {
-		vertices[i] = capX;
-		vertices[i+1] += sy;
-		vertices[i+2] += sz;
-		normals[i] = dir;
-		normals[i+1] = 0;
-		normals[i+2] = 0;
-	}
-
-	return {vertices: vertices, normals: normals};
 }
 
-exports.marchingCubeCapY = function(dims, data, isoMin, isoMax, bounds, dir) {
-	var capY = dir === -1 ? bounds[0][1] : bounds[1][1]-1;
-	var width = dims[0], height = dims[1], depth = dims[2];
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
-	var bw = ex-sx;
-	var bh = 2;
-	var bd = ez-sz;
-
-	var off1 = 0, off2 = bw;
-	if (dir === -1) {
-		off1 = bw;
-		off2 = 0;
-	}
-
-	var dataSlice = new Uint8Array(bw * bh * bd);
-	var zStride = width * height;
+if (axis === 1) {
 	for (var z=sz,dz=0; z<ez; z++,dz++) {
-		for (var x=sx,dx=0; x<ex; x++,dx++) {
-			var off = z * zStride + x;
-			var v = data[off + width*capY];
-			dataSlice[off1 + dz*bw*bh + dx] = 0;
-			dataSlice[off2 + dz*bw*bh + dx] = (v >= isoMin && v <= isoMax) ? 1 : 0;
-		}
-	}
+		//for (var y=sy,dy=0; y<ey; y++,dy++) {
+			for (var x=sx,dx=0; x<ex; x++,dx++) {
 
-	var sliceDims = [bw, bh, bd];
-	var bounds = [[0,0,0], sliceDims];
-	var geoIndicesLength = (bd-1)*(bh-1)*(bw-1);
-	if (geoIndices.length < geoIndicesLength) {
-		geoIndices = new Uint8Array(geoIndicesLength);
-	}
-	var vertexCount = buildGeoIndices(geoIndices, dataSlice, sliceDims, bounds);
+				var off =
+					(axis === 0) ? z*width*height + y*width :
+		            (axis === 1) ? z*width*height + x :
+			  					   y*width + x;
 
-	var vertices = new Float32Array(vertexCount);
-	var normals = new Float32Array(vertexCount);
-	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
-	for (var i=0; i<vertices.length; i+=3) {
-		vertices[i] += sx;
-		vertices[i+1] = capY;
-		vertices[i+2] += sz;
-		normals[i] = 0;
-		normals[i+1] = dir;
-		normals[i+2] = 0;
-	}
+				var index =
+					(axis === 0) ? cap :
+				    (axis === 1) ? cap*width :
+				                   cap*width*height;
 
-	return {vertices: vertices, normals: normals};
+				var v = data[index + off];
+
+				var begin =
+					(axis === 0) ? dz*bw*bh + dy*bw :
+					(axis === 1) ? dz*bw*bh + dx :
+					               dy*bw + dx;
+
+				dataSlice[begin + off1] = 0;
+				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
+
+			}
+		//}
+	}
 }
 
-exports.marchingCubeCapZ = function(dims, data, isoMin, isoMax, bounds, dir) {
-	var capZ = dir === -1 ? bounds[0][2] : bounds[1][2]-1;
-	var width = dims[0], height = dims[1], depth = dims[2];
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
+if (axis === 2) {
+	//for (var z=sz,dz=0; z<ez; z++,dz++) {
+		for (var y=sy,dy=0; y<ey; y++,dy++) {
+			for (var x=sx,dx=0; x<ex; x++,dx++) {
 
-	var bw = ex-sx;
-	var bh = ey-sy;
-	var bd = 2;
+				var off =
+					(axis === 0) ? z*width*height + y*width :
+		            (axis === 1) ? z*width*height + x :
+			  					   y*width + x;
 
-	var off1 = 0, off2 = bh*bw;
-	if (dir === -1) {
-		off1 = bh*bw;
-		off2 = 0;
-	}
+				var index =
+					(axis === 0) ? cap :
+				    (axis === 1) ? cap*width :
+				                   cap*width*height;
 
-	var dataSlice = new Uint8Array(bw * bh * bd);
-	var zStride = width * height;
-	for (var y=sy,dy=0; y<ey; y++,dy++) {
-		for (var x=sx,dx=0; x<ex; x++,dx++) {
-			var off = y * width + x;
-			var v = data[off + zStride*capZ];
-			dataSlice[off1 + dy*bw + dx] = 0;
-			dataSlice[off2 + dy*bw + dx] = (v >= isoMin && v <= isoMax) ? 1 : 0;
+				var v = data[index + off];
+
+				var begin =
+					(axis === 0) ? dz*bw*bh + dy*bw :
+					(axis === 1) ? dz*bw*bh + dx :
+					               dy*bw + dx;
+
+				dataSlice[begin + off1] = 0;
+				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
+
+			}
 		}
-	}
+	//}
+}
 
 	var sliceDims = [bw, bh, bd];
 	var bounds = [[0,0,0], sliceDims];
@@ -434,13 +428,15 @@ exports.marchingCubeCapZ = function(dims, data, isoMin, isoMax, bounds, dir) {
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
+
 	for (var i=0; i<vertices.length; i+=3) {
-		vertices[i] += sx;
-		vertices[i+1] += sy;
-		vertices[i+2] = capZ;
-		normals[i] = 0;
-		normals[i+1] = 0;
-		normals[i+2] = dir;
+		vertices[i  ] = (axis === 0) ? cap : vertices[i  ] + sx;
+		vertices[i+1] = (axis === 1) ? cap : vertices[i+1] + sy;
+		vertices[i+2] = (axis === 2) ? cap : vertices[i+2] + sz;
+
+		normals[i  ] = (axis === 0) ? dir : 0;
+		normals[i+1] = (axis === 1) ? dir : 0;
+		normals[i+2] = (axis === 2) ? dir : 0;
 	}
 
 	return {vertices: vertices, normals: normals};
@@ -475,13 +471,15 @@ exports.marchingCubesCaps = function(dims, data, isoMin, isoMax, bounds) {
 	if (LOG_TIMINGS) {
 		console.time('isoCaps');
 	}
+
 	var mesh = exports.concatMeshes(
-		exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapX(dims, data, isoMin, isoMax, bounds, 1),
-		exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapY(dims, data, isoMin, isoMax, bounds, 1),
-		exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, -1),
-		exports.marchingCubeCapZ(dims, data, isoMin, isoMax, bounds, 1)
+		exports.marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, 1),
+		exports.marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, 1),
+		exports.marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, -1),
+		exports.marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, 1)
+
 	);
 	if (LOG_TIMINGS) {
 		console.timeEnd('isoCaps');
