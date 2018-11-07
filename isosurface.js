@@ -116,7 +116,6 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 
 	var zOff, yOff00, yOff01, yOff10, yOff11;
 	var s1, s3, s5, s7;
-	var c0, c1, c2, c3;
 
 	// March over the volume
 	for (z=sz; z<ez; z++) {
@@ -135,72 +134,33 @@ var buildGeoIndices = function(geoIndices, data, dims, bounds) {
 			s7 = data[yOff11++];
 
 			for (x=sx; x<ex4; x+=4, n+=4) {
-				c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+				var c = [0, 0, 0, 0];
+				for (var i = 0; i < 4; ++i) {
+					c[i] += s1*1;
+					c[i] += s3*4;
+					c[i] += s5*16;
+					c[i] += s7*64;
+					s1 = data[yOff00++];
+					s3 = data[yOff01++];
+					s5 = data[yOff10++];
+					s7 = data[yOff11++];
+					c[i] += s1*2;
+					c[i] += s3*8;
+					c[i] += s5*32;
+					c[i] += s7*128;
+				}
+				geoIndices[n+0] = c[0];
+				geoIndices[n+1] = c[1];
+				geoIndices[n+2] = c[2];
+				geoIndices[n+3] = c[3];
 
-				c0 += s1*1;
-				c0 += s3*4;
-				c0 += s5*16;
-				c0 += s7*64;
-				s1 = data[yOff00++];
-				s3 = data[yOff01++];
-				s5 = data[yOff10++];
-				s7 = data[yOff11++];
-				c0 += s1*2;
-				c0 += s3*8;
-				c0 += s5*32;
-				c0 += s7*128;
-
-				c1 += s1*1;
-				c1 += s3*4;
-				c1 += s5*16;
-				c1 += s7*64;
-				s1 = data[yOff00++];
-				s3 = data[yOff01++];
-				s5 = data[yOff10++];
-				s7 = data[yOff11++];
-				c1 += s1*2;
-				c1 += s3*8;
-				c1 += s5*32;
-				c1 += s7*128;
-
-				c2 += s1*1;
-				c2 += s3*4;
-				c2 += s5*16;
-				c2 += s7*64;
-				s1 = data[yOff00++];
-				s3 = data[yOff01++];
-				s5 = data[yOff10++];
-				s7 = data[yOff11++];
-				c2 += s1*2;
-				c2 += s3*8;
-				c2 += s5*32;
-				c2 += s7*128;
-
-				c3 += s1*1;
-				c3 += s3*4;
-				c3 += s5*16;
-				c3 += s7*64;
-				s1 = data[yOff00++];
-				s3 = data[yOff01++];
-				s5 = data[yOff10++];
-				s7 = data[yOff11++];
-				c3 += s1*2;
-				c3 += s3*8;
-				c3 += s5*32;
-				c3 += s7*128;
-
-				geoIndices[n+0] = c0;
-				geoIndices[n+1] = c1;
-				geoIndices[n+2] = c2;
-				geoIndices[n+3] = c3;
-
-				vertexCount += geoLengthTable[c0];
-				vertexCount += geoLengthTable[c1];
-				vertexCount += geoLengthTable[c2];
-				vertexCount += geoLengthTable[c3];
+				vertexCount += geoLengthTable[c[0]];
+				vertexCount += geoLengthTable[c[1]];
+				vertexCount += geoLengthTable[c[2]];
+				vertexCount += geoLengthTable[c[3]];
 			}
 			for (; x<ex; x++, n++) {
-				c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+				var c0 = 0;
 
 				c0 += s1*1;
 				c0 += s3*4;
