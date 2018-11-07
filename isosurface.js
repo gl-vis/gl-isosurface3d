@@ -15,13 +15,13 @@ exports = module.exports = function(params, bounds) {
 	var data = params.values;
 	var isoBounds = params.isoBounds || [1, Infinity];
 	var isoMin = isoBounds[0], isoMax = isoBounds[1];
-	var isosurf = marchingCubes(dims, data, isoMin, isoMax, bounds)
+	var isosurf = marchingCubesSurfaces(dims, data, isoMin, isoMax, bounds)
 	if (params.smoothNormals) {
 		smoothNormals(isosurf);
 	}
 	var isocapsMesh;
 	if (params.isoCaps) {
-		var isocaps = marchingCubesCaps(dims, data, isoMin, isoMax, bounds);
+		var isocaps = marchingCubesAllCaps(dims, data, isoMin, isoMax, bounds);
 		if (params.singleMesh) {
 			isosurf = concatMeshes(isosurf, isocaps);
 		} else {
@@ -44,7 +44,11 @@ exports.createTriMesh = createTriMesh;
 
 var geoLengthTable = geoTable.map(function(a) { return a.length });
 
-var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
+var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
+
+	var vertices = new Float32Array(vertexCount);
+	var normals = new Float32Array(vertexCount);
+
 	var idx, verts, norms;
 	var x, y, z;
 	var width = dims[0], height = dims[1], depth = dims[2];
@@ -80,6 +84,11 @@ var fillVertexArrays = function(geoIndices, vertices, normals, dims, bounds) {
 			}
 		}
 	}
+
+	return {
+		vertices: vertices,
+		normals: normals
+	};
 }
 
 var buildGeoIndices = function(data, dims, bounds) {
@@ -188,7 +197,7 @@ function munchData(data, isoMin, isoMax) {
 }
 
 
-function marchingCubes(dims, data, isoMin, isoMax, bounds) {
+function marchingCubesSurfaces(dims, data, isoMin, isoMax, bounds) {
 
 	if (LOG_TIMINGS) {
 		console.log('---');
@@ -223,10 +232,9 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 		console.time("Fill vertex arrays");
 	}
 
-	var vertices = new Float32Array(vertexCount);
-	var normals = new Float32Array(vertexCount);
-
-	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
+	var arrays = getVerticesAndNormals(geoIndices, vertexCount, dims, bounds);
+	var vertices = arrays.vertices;
+	var normals = arrays.normals;
 
 	if (LOG_TIMINGS) {
 		console.timeEnd("Fill vertex arrays");
@@ -236,7 +244,7 @@ function marchingCubes(dims, data, isoMin, isoMax, bounds) {
 	return {vertices: vertices, normals: normals};
 };
 
-function marchingCubeCapXYZ(axis, dims, data, isoMin, isoMax, bounds, dir) {
+function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 
 	var cap = (dir === -1) ? bounds[0][axis] : bounds[1][axis]-1;
 
@@ -296,9 +304,9 @@ function marchingCubeCapXYZ(axis, dims, data, isoMin, isoMax, bounds, dir) {
 	var geoIndices = result.geoIndices;
 	var vertexCount = result.vertexCount;
 
-	var vertices = new Float32Array(vertexCount);
-	var normals = new Float32Array(vertexCount);
-	fillVertexArrays(geoIndices, vertices, normals, dims, bounds);
+	var arrays = getVerticesAndNormals(geoIndices, vertexCount, dims, bounds);
+	var vertices = arrays.vertices;
+	var normals = arrays.normals;
 
 	for (var i=0; i<vertices.length; i+=3) {
 		vertices[i  ] = (axis === 0) ? cap : vertices[i  ] + sx;
@@ -338,18 +346,18 @@ function concatMeshes() {
 	return {vertices: vertices, normals: normals};
 }
 
-function marchingCubesCaps(dims, data, isoMin, isoMax, bounds) {
+function marchingCubesAllCaps(dims, data, isoMin, isoMax, bounds) {
 	if (LOG_TIMINGS) {
 		console.time('isoCaps');
 	}
 
 	var mesh = concatMeshes(
-		marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, -1),
-		marchingCubeCapXYZ(0, dims, data, isoMin, isoMax, bounds, 1),
-		marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, -1),
-		marchingCubeCapXYZ(1, dims, data, isoMin, isoMax, bounds, 1),
-		marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, -1),
-		marchingCubeCapXYZ(2, dims, data, isoMin, isoMax, bounds, 1)
+		marchingCubesCap(0, -1, dims, data, isoMin, isoMax, bounds),
+		marchingCubesCap(0, +1, dims, data, isoMin, isoMax, bounds),
+		marchingCubesCap(1, -1, dims, data, isoMin, isoMax, bounds),
+		marchingCubesCap(1, +1, dims, data, isoMin, isoMax, bounds),
+		marchingCubesCap(2, -1, dims, data, isoMin, isoMax, bounds),
+		marchingCubesCap(2, +1, dims, data, isoMin, isoMax, bounds)
 	);
 	if (LOG_TIMINGS) {
 		console.timeEnd('isoCaps');
