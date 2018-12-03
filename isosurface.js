@@ -390,14 +390,16 @@ function meshConvert(mesh, data, dims, vertexIntensityBounds, meshgrid) {
 		console.time('meshConvert');
 	}
 	var vertices = mesh.vertices, normals = mesh.normals;
-	var w = dims[0], h = dims[1];
-	var vertexIntensity = new Float32Array(vertices.length / 3);
+	var width = dims[0], height = dims[1];
+
 	var len = vertices.length;
+	var vertexIntensity = new Float32Array(len / 3);
+
 	for (var i = 0; i < len / 3; i++) {
 		var x = vertices[i * 3 + 0];
 		var y = vertices[i * 3 + 1];
 		var z = vertices[i * 3 + 2];
-		vertexIntensity[i] = data[z*h*w + y*w + x];
+		vertexIntensity[i] = data[z * width * height + y * width + x];
 		if (meshgrid) {
 			vertices[i * 3 + 0] = meshgrid[0][x];
 			vertices[i * 3 + 1] = meshgrid[1][y];
