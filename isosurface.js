@@ -2,7 +2,7 @@
 
 var LOG_TIMINGS = false;
 
-var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals
+var computeVertexNormals = require('./lib/computeVertexNormals').computeVertexNormals;
 var geoTable = require('./lib/geoTable');
 var normalTable = require('./lib/normalTable');
 var createTriMesh = require('./lib/trimesh');
@@ -15,7 +15,7 @@ exports = module.exports = function(params, bounds) {
 	var data = params.values;
 	var isoBounds = params.isoBounds || [1, Infinity];
 	var isoMin = isoBounds[0], isoMax = isoBounds[1];
-	var isosurf = marchingCubesSurfaces(dims, data, isoMin, isoMax, bounds)
+	var isosurf = marchingCubesSurfaces(dims, data, isoMin, isoMax, bounds);
 	if (params.smoothNormals) {
 		smoothNormals(isosurf);
 	}
@@ -49,38 +49,36 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 	var vertices = new Float32Array(vertexCount);
 	var normals = new Float32Array(vertexCount);
 
-	var idx, verts, norms;
 	var x, y, z;
-	var width = dims[0], height = dims[1], depth = dims[2];
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
-	var zStride = width * height;
-	var yStride = width;
+	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
+	var xEnd   = bounds[1][0], yEnd   = bounds[1][1], zEnd   = bounds[1][2];
 	ex--; ey--; ez--;
 
-	var i=0, j=0, k=0, w=0, u=0, vl=0;
+	var i = 0, j = 0;
 	// March over the volume
-	for (z=sz; z<ez; z++) {
-		for (y=sy; y<ey; y++) {
-			for (x=sx; x<ex; x++, j++) {
+	for (z = zStart; z < zEnd; z++) {
+		for (y = yStart; y < yEnd; y++) {
+			for (x = xStart; x < xEnd; x++) {
 
-				idx = geoIndices[j];
-				verts = geoTable[idx];
-				norms = normalTable[idx];
+				var id = geoIndices[i];
+				var vTable = geoTable[id];
+				var nTable = normalTable[id];
 
-				vl = verts.length;
+				var verts_length = verts.length;
 
-				for (i=0,u=0; i<vl;) {
-					for (var q = 0; q < 3; ++q) { // do this three times.
-						normals[w++] = norms[u++];
-						normals[w++] = norms[u++];
-						normals[w++] = norms[u++];
+				for (var n = 0; n < verts_length; n += 3) {
+					vertices[j + 0] = vTable[n + 0] + x;
+					vertices[j + 1] = vTable[n + 1] + y;
+					vertices[j + 2] = vTable[n + 2] + z;
 
-						vertices[k++] = verts[i++] + x;
-						vertices[k++] = verts[i++] + y;
-						vertices[k++] = verts[i++] + z;
-					}
+					normals[j + 0] = nTable[n + 0];
+					normals[j + 1] = nTable[n + 1];
+					normals[j + 2] = nTable[n + 2];
+
+					j += 3;
 				}
+
+				i += 1;
 			}
 		}
 	}
