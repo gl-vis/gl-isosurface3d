@@ -35,7 +35,13 @@ exports = module.exports = function(params, bounds) {
 			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}
-	var isoPlot = meshConvert(isosurf, data, dims, params.vertexIntensityBounds, params.meshgrid);
+	var isoPlot = meshConvert(
+		isosurf,
+		data,
+		dims,
+		params.vertexIntensityBounds,
+		params.meshgrid
+	);
 	isoPlot.colormap = params.colormap;
 	if (isocapsMesh) {
 		isoPlot.caps = isocapsMesh;
@@ -95,7 +101,7 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 
 var buildGeoIndices = function(data, dims, bounds) {
 	var x, y, z;
-	var width = dims[0], height = dims[1], depth = dims[2];
+	var width = dims[0], height = dims[1];
 	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
 	var xEnd = bounds[1][0], yEnd = bounds[1][1], zEnd = bounds[1][2];
 	var zStride = width * height;
@@ -251,7 +257,7 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 
 	var cap = (dir === -1) ? bounds[0][axis] : bounds[1][axis]-1;
 
-	var width = dims[0], height = dims[1], depth = dims[2];
+	var width = dims[0], height = dims[1];
 	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
 	var xEnd = bounds[1][0], yEnd = bounds[1][1], zEnd = bounds[1][2];
 
@@ -385,17 +391,18 @@ function meshConvert(mesh, data, dims, vertexIntensityBounds, meshgrid) {
 		console.time('meshConvert');
 	}
 	var vertices = mesh.vertices, normals = mesh.normals;
-	var w = dims[0], h = dims[1], d = dims[2];
+	var w = dims[0], h = dims[1];
 	var vertexIntensity = new Float32Array(vertices.length / 3);
-	for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
-		var x = vertices[j + 0];
-		var y = vertices[j + 1];
-		var z = vertices[j + 2];
+	var len = vertices.length;
+	for (var i = 0; i < len / 3; i++) {
+		var x = vertices[i * 3 + 0];
+		var y = vertices[i * 3 + 1];
+		var z = vertices[i * 3 + 2];
 		vertexIntensity[i] = data[z*h*w + y*w + x];
 		if (meshgrid) {
-			vertices[j + 0] = meshgrid[0][x];
-			vertices[j + 1] = meshgrid[1][y];
-			vertices[j + 2] = meshgrid[2][z];
+			vertices[i * 3 + 0] = meshgrid[0][x];
+			vertices[i * 3 + 1] = meshgrid[1][y];
+			vertices[i * 3 + 2] = meshgrid[2][z];
 		}
 	}
 	var geo = {
