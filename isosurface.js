@@ -192,7 +192,6 @@ function munchData(data, isoMin, isoMax) {
 		return (data[a] >= isoMin && data[a] <= isoMax) ? 1 : 0;
 	}
 
-
 	var munchedData = new Uint8Array(data.length);
 
 	var i = 0, s = 0, dl8 = data.length - 8;
@@ -259,7 +258,7 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 
 	var width = dims[0], height = dims[1];
 	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
-	var xEnd = bounds[1][0], yEnd = bounds[1][1], zEnd = bounds[1][2];
+	var xEnd   = bounds[1][0], yEnd   = bounds[1][1], zEnd   = bounds[1][2];
 
 	var bw = (axis === 0) ? 2 : xEnd - xStart;
 	var bh = (axis === 1) ? 2 : yEnd - yStart;

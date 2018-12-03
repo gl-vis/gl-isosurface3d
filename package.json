@@ -18,7 +18,6 @@
     "glsl-specular-cook-torrance": "^2.0.1",
     "glslify": "^6.3.1",
     "ndarray": "^1.0.18",
-    "normals": "^1.1.0",
     "polytope-closest-point": "^1.0.0",
     "simplicial-complex-contour": "^1.0.2",
     "typedarray-pool": "^1.1.0"
