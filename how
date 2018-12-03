@@ -1,0 +1,237 @@
+[33mcommit 097cf17506cde454f568ed71747ae6165110ce3e[m[33m ([m[1;36mHEAD -> [m[1;32mplotly-integration[m[33m)[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 21 08:28:51 2018 -0500
+
+    upgrade modules
+
+[33mcommit 27a64fe5c43589a20e6799195541a1a6d39405b4[m[33m ([m[1;31morigin/plotly-integration[m[33m)[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Thu Nov 8 12:16:39 2018 -0500
+
+    using glsl-out-of-range 1.0.3
+
+[33mcommit 355b734ba43252b3e21a658718652f948d6b0649[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 16:29:52 2018 -0500
+
+    make the code more functional and less procedural
+
+[33mcommit b7110064c82898f5287b54734cfaf3434ca24f75[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 15:57:58 2018 -0500
+
+    removing global large init for geoIndices - success
+
+[33mcommit 54433c23365864deda039ace13207a933600ae7d[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 12:33:06 2018 -0500
+
+    changed munch data function to return munched data
+
+[33mcommit 2e4709e14cf0ccce2d3324f1ea5d9aa689f1d99e[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 12:27:36 2018 -0500
+
+    large init arrays first
+
+[33mcommit 069012a1451efa4ffffe789a74871d145e59d385[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 12:17:55 2018 -0500
+
+    put requires at the top of function
+
+[33mcommit 9d8fd45e670cce841d71e0fc9ae8aa101f7de94d[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 12:10:50 2018 -0500
+
+    removed unused exports
+
+[33mcommit f174a39aab893bec3d6b024a1f2ea1624d4d5547[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 11:51:28 2018 -0500
+
+    reduced code using loops
+
+[33mcommit ed66bbd37dc1a467c8fec66b6ad8aa06e6dcd21c[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 11:42:37 2018 -0500
+
+    reduced code
+
+[33mcommit 40f7c2cd93e8a25e2b5de580709ae2067ab36bae[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 11:25:47 2018 -0500
+
+    use a second loop to reduce code size
+
+[33mcommit baeac674db0b94abc86dfd7eb964c97d7c1514e7[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 10:56:55 2018 -0500
+
+    remove extra counters
+
+[33mcommit fe5bec443d5fde4b8d3eb1851dbf54ea1b776394[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Wed Nov 7 10:44:02 2018 -0500
+
+    first pass to make centralized cap functions
+
+[33mcommit fa73850e650ea9fd062a6438a0ad8ec9fce2699a[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Mon Nov 5 16:42:31 2018 -0500
+
+    move scripts other than main to lib
+
+[33mcommit 1cb8d0a05f062f6cb427eca4b725166fe9885662[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Mon Nov 5 16:14:29 2018 -0500
+
+    clip and support for reversed bounds
+
+[33mcommit c01d032c5cacd897229ca6e2138aec9ca0085989[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Mon Nov 5 15:50:10 2018 -0500
+
+    removed examples and large builds from the module
+
+[33mcommit c171af5b2bc3538fb2496892244576910cb29c01[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Mon Nov 5 15:37:03 2018 -0500
+
+    moving large inits from the main to resource files
+
+[33mcommit 3f610624849d812d8bac39ba48e532b871d51102[m
+Author: archmoj <mojtaba@plot.ly>
+Date:   Sun Nov 4 20:37:27 2018 -0500
+
+    added package lock
+
+[33mcommit b4a79af9986263bd2bf1a70cc6096e711d2365ee[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Sat Jun 23 10:57:29 2018 +0800
+
+    comment out fragment shader clipping to avoid caps flickering at clip
+    bounds
+
+[33mcommit 8734eb6bafd70e39def4e9f382a051d6e422b49a[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Sat Jun 23 05:53:38 2018 +0800
+
+    meshgrid fixes, logTimings param for createTriMesh
+
+[33mcommit 6aa0761439ed3eec03c022e8aaf345c94c1ebb6f[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Jun 20 15:02:45 2018 +0800
+
+    update build
+
+[33mcommit 193136b8eebe3f40486016d9673fe205d1fd23b5[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Jun 20 14:30:17 2018 +0800
+
+    remove es6 bits, remove babelify, make timing logging optional
+
+[33mcommit 8de000955b696b31fbf06c0691e8141d37af9c26[m
+Merge: 315b719 d6a12ac
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Jun 20 13:38:03 2018 +0800
+
+    Merge branch 'master' of https://github.com/gl-vis/gl-isosurface3d into sparse
+
+[33mcommit 315b719d018a63e9d4cd3c48ab8405717b908f8b[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Tue Mar 13 19:14:34 2018 +0800
+
+    scaffolding for meshgrid isosurfaces
+
+[33mcommit d9499148718b82678ef34c81cf6e615fa9206b64[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Mar 7 20:14:48 2018 +0800
+
+    scaffolding for sparse data isosurfaces
+
+[33mcommit d6a12acd1516c53009199c622bfe579b8c5e14c0[m
+Author: etienne <etienne@plot.ly>
+Date:   Wed Feb 14 15:32:57 2018 -0500
+
+    (chore) bump gl-shader, glslify and add gl-mesh3d as dev dep
+    
+    ... add npm@5 package-lock-json
+
+[33mcommit 1cb2a4f3d9b767273d62b1902297e457f3e590df[m[33m ([m[1;31morigin/gh-pages[m[33m)[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Tue Dec 26 16:52:50 2017 +0800
+
+    brainbrowser example using the MniObjReader library
+
+[33mcommit f028d159cae58043d7038362aa45550897bc794c[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Mon Dec 4 12:55:32 2017 +0800
+
+    More examples
+
+[33mcommit 448e4f281c508d6604cc29647aaf6014727d1d46[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Mon Nov 6 19:08:13 2017 +0800
+
+    Add colormap to isosurface params
+
+[33mcommit b1c126a99e8886a9b51e6892a8759209fe50ace8[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Tue Oct 31 18:33:19 2017 +0800
+
+    update README with createTriMesh documentation
+
+[33mcommit 09907cb37d4e897a35b071fd20a6cdb976c54cf9[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Sun Oct 29 22:56:04 2017 +0800
+
+    export optimized createTriMesh, update README and demo build
+
+[33mcommit 990f60b1a2dfc2d6a8e3cbbd56097b34623a4360[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Sun Oct 29 22:41:54 2017 +0800
+
+    Separate meshes for isocaps and isosurface
+
+[33mcommit 7e3fb20df4c74aa4423f465a4d299179fab83df1[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Sun Oct 29 22:32:06 2017 +0800
+
+    Optimized triangle mesh creation.
+
+[33mcommit 4cd1a98bbecb425fdb0fa79a845dad6507f70ab7[m
+Author: Ilmari Heikkinen <ilmari.heikkinen@gmail.com>
+Date:   Fri Oct 20 18:03:12 2017 +0800
+
+    link to example
+
+[33mcommit 9937353c79d7c874c4368c5282b2dfbe33f19abd[m
+Author: Ilmari Heikkinen <ilmari.heikkinen@gmail.com>
+Date:   Fri Oct 20 18:02:14 2017 +0800
+
+    example builds
+
+[33mcommit a12ee34ac6825a2b41489dd509f0fc76236fcfa8[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Fri Oct 13 23:41:33 2017 +0800
+
+    fix isocap normals
+
+[33mcommit 55e650b7b13e9ca51e57d9452e3c2bc28102ed2b[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Oct 4 09:19:14 2017 +0800
+
+    update examples
+
+[33mcommit 34839c93a5c8fceb67f5c03f9520e49d82c74980[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Wed Oct 4 08:53:09 2017 +0800
+
+    Add isosurface arguments documentation
+
+[33mcommit 8c5cab77e2d04e01262ff005850c9858909721e3[m
+Author: Ilmari Heikkinen <ilmari@fhtr.net>
+Date:   Tue Oct 3 20:05:53 2017 +0800
+
+    initial commit
