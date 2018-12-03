@@ -25,7 +25,13 @@ exports = module.exports = function(params, bounds) {
 		if (params.singleMesh) {
 			isosurf = concatMeshes(isosurf, isocaps);
 		} else {
-			isocapsMesh = meshConvert(isocaps, data, dims, params.capsVertexIntensityBounds || params.vertexIntensityBounds, params.meshgrid);
+			isocapsMesh = meshConvert(
+				isocaps,
+				data,
+				dims,
+				params.capsVertexIntensityBounds || params.vertexIntensityBounds,
+				params.meshgrid
+			);
 			isocapsMesh.colormap = params.capsColormap || params.colormap;
 		}
 	}
@@ -52,7 +58,7 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 	var x, y, z;
 	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
 	var xEnd   = bounds[1][0], yEnd   = bounds[1][1], zEnd   = bounds[1][2];
-	ex--; ey--; ez--;
+	xEnd--; yEnd--; zEnd--;
 
 	var i = 0, j = 0;
 	// March over the volume
@@ -64,9 +70,8 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 				var vTable = geoTable[id];
 				var nTable = normalTable[id];
 
-				var verts_length = verts.length;
-
-				for (var n = 0; n < verts_length; n += 3) {
+				var len = vTable.length;
+				for (var n = 0; n < len; n += 3) {
 					vertices[j + 0] = vTable[n + 0] + x;
 					vertices[j + 1] = vTable[n + 1] + y;
 					vertices[j + 2] = vTable[n + 2] + z;
@@ -77,7 +82,6 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 
 					j += 3;
 				}
-
 				i += 1;
 			}
 		}
@@ -92,12 +96,11 @@ var getVerticesAndNormals = function(geoIndices, vertexCount, dims, bounds) {
 var buildGeoIndices = function(data, dims, bounds) {
 	var x, y, z;
 	var width = dims[0], height = dims[1], depth = dims[2];
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
+	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
+	var xEnd = bounds[1][0], yEnd = bounds[1][1], zEnd = bounds[1][2];
 	var zStride = width * height;
 	var yStride = width;
-	ex--; ey--; ez--;
-	var ex4 = ex-4;
+	xEnd--; yEnd--; zEnd--;
 
 	var vertexCount = 0;
 	var n = 0;
@@ -105,13 +108,13 @@ var buildGeoIndices = function(data, dims, bounds) {
 	var zOff, yOff00, yOff01, yOff10, yOff11;
 	var s1, s3, s5, s7;
 
-	var geoIndices = new Uint8Array((ex - sx) * (ey - sy) * (ez - sz));
+	var geoIndices = new Uint8Array((xEnd - xStart) * (yEnd - yStart) * (zEnd - zStart));
 
 	// March over the volume
-	for (z=sz; z<ez; z++) {
+	for (z = zStart; z < zEnd; z++) {
 		zOff = z * zStride;
-		for (y=sy; y<ey; y++) {
-			yOff00 = zOff + y * yStride + sx;
+		for (y = yStart; y < yEnd; y++) {
+			yOff00 = zOff + y * yStride + xStart;
 			yOff01 = yOff00 + yStride;
 			yOff10 = yOff00 + zStride;
 			yOff11 = yOff01 + zStride;
@@ -123,7 +126,7 @@ var buildGeoIndices = function(data, dims, bounds) {
 			s5 = data[yOff10++];
 			s7 = data[yOff11++];
 
-			for (x=sx; x<ex4; x+=4, n+=4) {
+			for (x = xStart; x < xEnd - 4; x += 4, n += 4) {
 				var c = [0, 0, 0, 0];
 				for (var i = 0; i < 4; ++i) {
 					c[i] += s1*1;
@@ -139,17 +142,17 @@ var buildGeoIndices = function(data, dims, bounds) {
 					c[i] += s5*32;
 					c[i] += s7*128;
 				}
-				geoIndices[n+0] = c[0];
-				geoIndices[n+1] = c[1];
-				geoIndices[n+2] = c[2];
-				geoIndices[n+3] = c[3];
+				geoIndices[n + 0] = c[0];
+				geoIndices[n + 1] = c[1];
+				geoIndices[n + 2] = c[2];
+				geoIndices[n + 3] = c[3];
 
 				vertexCount += geoLengthTable[c[0]];
 				vertexCount += geoLengthTable[c[1]];
 				vertexCount += geoLengthTable[c[2]];
 				vertexCount += geoLengthTable[c[3]];
 			}
-			for (; x<ex; x++, n++) {
+			for (; x<xEnd; x++, n++) {
 				var d = 0;
 
 				d += s1*1;
@@ -179,16 +182,21 @@ var buildGeoIndices = function(data, dims, bounds) {
 
 function munchData(data, isoMin, isoMax) {
 
+	function calMunchedData(a) {
+		return (data[a] >= isoMin && data[a] <= isoMax) ? 1 : 0;
+	}
+
+
 	var munchedData = new Uint8Array(data.length);
 
 	var i = 0, s = 0, dl8 = data.length - 8;
 	for (i = 0; i < dl8; i += 8) {
 		for (var j = 0; j < 8; ++j) {
-			munchedData[i+j] = (data[i+j] >= isoMin && data[i+j] <= isoMax) ? 1 : 0;
+			munchedData[i+j] = calMunchedData(i+j)
 		}
 	}
 	for (; i < data.length; i++) {
-		munchedData[i+0] = (data[i+0] >= isoMin && data[i+0] <= isoMax) ? 1 : 0;
+		munchedData[i + 0] = calMunchedData(i + 0)
 	}
 
 	return munchedData;
@@ -204,9 +212,6 @@ function marchingCubesSurfaces(dims, data, isoMin, isoMax, bounds) {
 	if (!bounds) {
 		bounds = [[0,0,0], dims];
 	}
-
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
 
 	if (LOG_TIMINGS) {
 		console.time("Munch data");
@@ -247,12 +252,12 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 	var cap = (dir === -1) ? bounds[0][axis] : bounds[1][axis]-1;
 
 	var width = dims[0], height = dims[1], depth = dims[2];
-	var sx = bounds[0][0], sy = bounds[0][1], sz = bounds[0][2];
-	var ex = bounds[1][0], ey = bounds[1][1], ez = bounds[1][2];
+	var xStart = bounds[0][0], yStart = bounds[0][1], zStart = bounds[0][2];
+	var xEnd = bounds[1][0], yEnd = bounds[1][1], zEnd = bounds[1][2];
 
-	var bw = (axis === 0) ? 2 : ex - sx;
-	var bh = (axis === 1) ? 2 : ey - sy;
-	var bd = (axis === 2) ? 2 : ez - sz;
+	var bw = (axis === 0) ? 2 : xEnd - xStart;
+	var bh = (axis === 1) ? 2 : yEnd - yStart;
+	var bd = (axis === 2) ? 2 : zEnd - zStart;
 
 	var off1 = 0;
 	var off2 =
@@ -268,9 +273,9 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 
 	var dataSlice = new Uint8Array(bw*bh*bd);
 
-	for (var z=sz; z<sz+bd; z++) {
-		for (var y=sy; y<sy+bh; y++) {
-			for (var x=sx; x<sx+bw; x++) {
+	for (var z=zStart; z<zStart+bd; z++) {
+		for (var y=yStart; y<yStart+bh; y++) {
+			for (var x=xStart; x<xStart+bw; x++) {
 
 				var off =
 					(axis === 0) ? z*width*height + y*width :
@@ -285,9 +290,9 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 				var v = data[index + off];
 
 				var begin =
-					(axis === 0) ? (z - sz)*bw*bh + (y - sy)*bw :
-					(axis === 1) ? (z - sz)*bw*bh + (x - sx) :
-					               (y - sy)*bw + (x - sx);
+					(axis === 0) ? (z - zStart)*bw*bh + (y - yStart)*bw :
+					(axis === 1) ? (z - zStart)*bw*bh + (x - xStart) :
+					               (y - yStart)*bw + (x - xStart);
 
 				dataSlice[begin + off1] = 0;
 				dataSlice[begin + off2] = (v >= isoMin && v <= isoMax) ? 1 : 0;
@@ -307,13 +312,13 @@ function marchingCubesCap(axis, dir, dims, data, isoMin, isoMax, bounds) {
 	var normals = arrays.normals;
 
 	for (var i=0; i<vertices.length; i+=3) {
-		vertices[i  ] = (axis === 0) ? cap : vertices[i  ] + sx;
-		vertices[i+1] = (axis === 1) ? cap : vertices[i+1] + sy;
-		vertices[i+2] = (axis === 2) ? cap : vertices[i+2] + sz;
+		vertices[i + 0] = (axis === 0) ? cap : vertices[i + 0] + xStart;
+		vertices[i + 1] = (axis === 1) ? cap : vertices[i + 1] + yStart;
+		vertices[i + 2] = (axis === 2) ? cap : vertices[i + 2] + zStart;
 
-		normals[i  ] = (axis === 0) ? dir : 0;
-		normals[i+1] = (axis === 1) ? dir : 0;
-		normals[i+2] = (axis === 2) ? dir : 0;
+		normals[i + 0] = (axis === 0) ? dir : 0;
+		normals[i + 1] = (axis === 1) ? dir : 0;
+		normals[i + 2] = (axis === 2) ? dir : 0;
 	}
 
 	return {vertices: vertices, normals: normals};
@@ -383,12 +388,12 @@ function meshConvert(mesh, data, dims, vertexIntensityBounds, meshgrid) {
 	var w = dims[0], h = dims[1], d = dims[2];
 	var vertexIntensity = new Float32Array(vertices.length / 3);
 	for (var j = 0, i = 0; j < vertices.length; j+=3, i++) {
-		var x = vertices[j];
-		var y = vertices[j+1];
-		var z = vertices[j+2];
+		var x = vertices[j + 0];
+		var y = vertices[j + 1];
+		var z = vertices[j + 2];
 		vertexIntensity[i] = data[z*h*w + y*w + x];
 		if (meshgrid) {
-			vertices[j    ] = meshgrid[0][x];
+			vertices[j + 0] = meshgrid[0][x];
 			vertices[j + 1] = meshgrid[1][y];
 			vertices[j + 2] = meshgrid[2][z];
 		}
